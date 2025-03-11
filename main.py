@@ -44,28 +44,37 @@ def grayscale_pillow():
 
         if item.endswith('jpg'):
 
+            image = Image.open(os.path.join(folder_path, item)).rotate(270,
+                                                                       resample=1,
+                                                                       expand=True)
 
 
-            image = Image.open(os.path.join(folder_path, item))
-            image_data = image.getdata()
-            lst = list()
+            grayscale_image = ImageEnhance.Color(image).enhance(-1.5)
+            brightness_image = ImageEnhance.Brightness(
+                grayscale_image).enhance(1.2)
 
+            contrast_image = ImageEnhance.Contrast(
+                brightness_image).enhance(0.8)
+
+            sharpen_image = ImageEnhance.Sharpness(contrast_image).enhance(2)
+
+            image_data = sharpen_image.getdata()
+            lst = []
             for i in image_data:
-               # lst.append(i[0]*0.2125+i[1]*0.7174+i[2]*0.0721)
-                lst.append(i[0]*0.299+i[1]*0.587+i[2]*0.114)
-
-            grayscale_image = Image.new('L', image.size)
-            grayscale_image.putdata(lst)
+                lst.append(i[0]*0.2125+i[1]*0.7174+i[2]*0.0721)
 
             if not os.path.isdir(output_path):
                 os.mkdir(output_path)
 
-            grayscale_image.save(
-                os.path.join(output_path, f'Image_{str(file_counter).zfill(3)}.jpg')
-            )
+            output = Image.new('L', sharpen_image.size, )
+            output.putdata(lst)
+           # output.convert('1', dither=None)
+
+            output.save(os.path.join(output_path, f'Image_{str(file_counter).zfill(3)}.jpg'))
+
             print(f'Image_{str(file_counter).zfill(3)}.jpg saved.')
             file_counter += 1
-            break
+
 
 grayscale_pillow()
 
