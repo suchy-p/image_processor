@@ -47,10 +47,15 @@ def grayscale_pillow():
 
 
             image = Image.open(os.path.join(folder_path, item))
-            #grayscale_image = ImageOps.grayscale(image).rotate(270)
-            filter = ImageEnhance.Color(image)
-            #filter.enhance(0)
-            grayscale_image = image.filter(0)
+            image_data = image.getdata()
+            lst = list()
+
+            for i in image_data:
+               # lst.append(i[0]*0.2125+i[1]*0.7174+i[2]*0.0721)
+                lst.append(i[0]*0.299+i[1]*0.587+i[2]*0.114)
+
+            grayscale_image = Image.new('L', image.size)
+            grayscale_image.putdata(lst)
 
             if not os.path.isdir(output_path):
                 os.mkdir(output_path)
