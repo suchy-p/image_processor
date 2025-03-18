@@ -1,53 +1,141 @@
 import os
-import warnings
-import cv2
 
+import cv2
 from PIL import Image, ImageOps, ImageEnhance
+'''
+todo:
+- multi image pdf
+'''
+
 
 folder_path = 'C:\\Users\\YaTeż\\Desktop\\Rola\\Rola 27.02.25 — kopia\\'
 
 
+def grayscale_opencv(input_folder_path: str,
+                     file_extension: str='jpeg',
+                     rotate_angle: int=None,
+                     jpeg_quality: int=85,
+                     png_compression: int=5,
+                     ) -> None:
 
-# warnings.filterwarnings('ignore')
-def grayscale_opencv():
-    file_counter = 1
-    output_path = os.path.join(folder_path, 'grayscale_opencv')
+    file_counter: int = 1
+    # file_extension: str = 'jpg'
+    rotate: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
+                              180: cv2.ROTATE_180,
+                              270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+                              }
+
+    output_path: str = os.path.join(input_folder_path, 'opencv_')
+
+    # params for output file compression
+    jpg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
+    png_encode_param = [int(cv2.IMWRITE_PNG_COMPRESSION), png_compression]
+
     for item in os.listdir(folder_path):
         os.chdir(folder_path)
 
         if item.endswith('jpg'):
-            image = cv2.imread(item)
 
-            rotated_image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
+            image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
 
-            grayscale_image = cv2.cvtColor(rotated_image, cv2.COLOR_BGR2GRAY)
-            # experimental code below
-            #(row, col) = rotated_image.shape[0:2]
+            # rotate right, left, flip vertical if rotate_angle argument is
+            # provided
+            if rotate_angle is not None:
+                # rotate image as specified in rotate variable
+                try:
+                    image: numpy.ndarray = cv2.rotate(image,
+                                                      rotate[rotate_angle],
+                                                      )
+                except KeyError:
+                    print('Wprowadź wartość liczbę całkowitą oznaczającą '
+                           'stopnie: 90, 180 lub 270')
+                    break
 
-            #for i in range(row):
-            #    for j in range(col):
-            #        rotated_image[i, j] = sum(rotated_image[i, j]) * 0.33
+            # contrast limited adaptive histogram equalization
+            clip_limit: int = 5
+            tile_grid_size: tuple[int, int] = (8, 8)
+            clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
 
+            # contrast (alpha) and brightness (beta) adjustments, optional
+            # alpha: int|float = 1.5
+            # beta: int = -120
+            # image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
+
+            # bilateral filter applied as better for preserving edges
+            # d: diameter of pixel neighborhood; if d == 0
+            # diameter is calculated based only on sigmaSpace
+            d: int = 9
+            # 2nd value - sigmaColor: color differences, higher value =
+            # higher tonal spread
+            sigma_color: int = 5
+            # 3rd value - sigmaSpace: neighboring pixels
+            sigma_space: int = 5
+            image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
+
+            grayscale_image: numpy.ndarray = clahe.apply(image)
+
+            # Reverse color, for negative images
+            # grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
+
+            # Create black and white image using adaptive threshold.
+            # max value assigned to pixel
+            max_value: int = 255
+            # adaptive thresholding method, index 0 == mean or 1 == gaussian
+            adaptive_method = [cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.ADAPTIVE_THRESH_GAUSSIAN_C]
+            # size of pixel neighborhood used to calculate threshold value
+            block_size: int = 199
+            # value subtracted from the mean or weighted (gaussian
+            # thresholding) sum of neighbouring pixels
+            constant: int = 50
+            bw_image: numpy.ndarray = cv2.adaptiveThreshold(
+                                        src=grayscale_image,
+                                        maxValue=max_value,
+                                        adaptiveMethod=adaptive_method[0],
+                                        thresholdType=cv2.THRESH_BINARY,
+                                        blockSize=block_size,
+                                        C=constant)
+
+            # check existing output path
             if not os.path.isdir(output_path):
                 os.mkdir(output_path)
+
             os.chdir(output_path)
 
-            cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.jpg', grayscale_image)
+            try:
+                # write png files with compression
+                # better for bw images
+                cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.'
+                            f'{file_extension}',
+                            bw_image, png_encode_param
+                            )
 
-            print(f'Saved: Image_{str(file_counter).zfill(3)}.jpg.')
+                # write jpg files with compression
+                # better for grayscale images
+                # cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.{
+                # file_extension}',
+                #            grayscale_image,
+                #            jpg_encode_param
+                #            )
+            except cv2.error as e:
+                print(f'Prawdopodobnie niewłaściwe rozszerzenie pliku. '
+                      f'Wybierz jpeg lub png. \n Treść błędu:\n {e}')
+                break
+
+            print(f'Saved: Image_{str(file_counter).zfill(3)}.'
+                  f'{file_extension}.')
             file_counter += 1
+
 
 def grayscale_pillow():
     file_counter = 1
     output_path = os.path.join(folder_path, 'grayscale_pillow')
+
     for item in os.listdir(folder_path):
 
         if item.endswith('jpg'):
-
-            image = Image.open(os.path.join(folder_path, item)).rotate(270,
-                                                                       resample=1,
-                                                                       expand=True)
-
+            image = Image.open(os.path.join(folder_path, item))
+            image = image.rotate(270, resample=1, expand=True)
 
             grayscale_image = ImageEnhance.Color(image).enhance(-1.5)
             brightness_image = ImageEnhance.Brightness(
@@ -68,15 +156,23 @@ def grayscale_pillow():
 
             output = Image.new('L', sharpen_image.size, )
             output.putdata(lst)
-           # output.convert('1', dither=None)
 
-            output.save(os.path.join(output_path, f'Image_{str(file_counter).zfill(3)}.jpg'))
+            output.convert('1', dither=None)
+
+            # output = ImageOps.grayscale(image)
+
+            output.save(os.path.join(output_path,
+                                     f'Image_{str(file_counter).zfill(3)}'
+                                     f'.jpg'), quality=70)
 
             print(f'Image_{str(file_counter).zfill(3)}.jpg saved.')
             file_counter += 1
 
 
-grayscale_pillow()
-
 if __name__ == '__main__':
-    main()
+    # grayscale_pillow()
+    grayscale_opencv(input_folder_path=folder_path,
+                     jpeg_quality=50,
+                     rotate_angle=90,
+                     file_extension='png'
+                     )
