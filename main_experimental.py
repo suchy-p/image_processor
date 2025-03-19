@@ -1,111 +1,166 @@
 import os
-import warnings
 
-import PIL.Image
 import cv2
+from PIL import Image, ImageOps, ImageEnhance
 '''
 todo:
 - multi image pdf
-- png compression  
 '''
-import numpy as np
-
-from PIL import Image, ImageOps, ImageEnhance
-
-folder_path = 'C:\\Users\\YaTeż\\Desktop\\Rola\\Rola 27.02.25 — kopia\\'
 
 
+folder_path: str = 'C:\\Users\\YaTeż\\Desktop\\Rola\\Rola 27.02.25 — kopia\\'
+output_path: str = os.path.join(folder_path, 'opencv_')
 
-# warnings.filterwarnings('ignore')
-def grayscale_opencv():
-    file_counter = 1
-    output_path = os.path.join(folder_path, 'grayscale_opencv')
+def grayscale_opencv(input_folder_path: str,
+                     output_folder_path: str,
+                     file_extension: str='jpeg',
+                     rotate_angle: int=None,
+                     jpeg_quality: int=85,
+                     png_compression: int=5,
+                     ) -> None:
+
+    file_counter: int = 1
+    # file_extension: str = 'jpg'
+    rotate: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
+                              180: cv2.ROTATE_180,
+                              270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+                              }
+
+    # params for output file compression
+    jpg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
+    png_encode_param = [int(cv2.IMWRITE_PNG_COMPRESSION), png_compression]
 
     for item in os.listdir(folder_path):
         os.chdir(folder_path)
 
         if item.endswith('jpg'):
 
+            image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
 
-            image = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
-            image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
-            image = cv2.equalizeHist(image)
+            # rotate right, left, flip vertical if rotate_angle argument is
+            # provided
+            if rotate_angle is not None:
+                # rotate image as specified in rotate variable
+                try:
+                    image: numpy.ndarray = cv2.rotate(image,
+                                                      rotate[rotate_angle],
+                                                      )
+                except KeyError:
+                    print('Wprowadź wartość liczbę całkowitą oznaczającą '
+                          'stopnie: 90, 180 lub 270')
+                    break
+
+            # contrast limited adaptive histogram equalization
+            clip_limit: int = 5
+            tile_grid_size: tuple[int, int] = (8, 8)
+            clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
+
+            # contrast (alpha) and brightness (beta) adjustments, optional
+            # alpha: int|float = 1.5
+            # beta: int = -120
+            # image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
+
             # bilateral filter applied as better for preserving edges
-            image = cv2.bilateralFilter(image, 9, 5, 5)
-            #image = cv2.medianBlur(image, 3)
-            #image = cv2.GaussianBlur(image, (5, 5), 0)
+            # d: diameter of pixel neighborhood; if d == 0
+            # diameter is calculated based only on sigmaSpace
+            d: int = 9
+            # 2nd value - sigmaColor: color differences, higher value =
+            # higher tonal spread
+            sigma_color: int = 5
+            # 3rd value - sigmaSpace: neighboring pixels
+            sigma_space: int = 5
+            image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
 
-            #im = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-            #hsv_image = cv2.cvtColor(im, cv2.COLOR_RGB2HSV)
-            #h, s, v = cv2.split(hsv_image)
+            grayscale_image: numpy.ndarray = clahe.apply(image)
 
-
-
-            blurred = cv2.bilateralFilter(image, 9, 75, 75) # adjust values
-
-            clahe = cv2.createCLAHE(clipLimit=5, tileGridSize=(8,
-                                                                8)) #clipLimit=40,
-            #lab = cv2.cvtColor(blurred, cv2.COLOR_BGR2LAB)
-            #lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-
-            # alpha - contrast; beta - brightness
-            #alpha = 1.5
-            #beta = -120
-
-            #image = cv2.convertScaleAbs(image, alpha=alpha, beta=beta)
-            #img_clahe = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
-            #v = clahe.apply(v)
-            #hsv_image = cv2.merge([h, s, v])
-            #hsv_image = cv2.cvtColor(hsv_image, cv2.COLOR_HSV2RGB)
-
-            #grayscale_image1 = cv2.cvtColor(img_clahe, cv2.COLOR_BGR2GRAY)
-            #grayscale_image = cv2.addWeighted(im, 0.2, grayscale_image1,
-            #                                  0.8, 20)
-            # grayscale_image = cv2.addWeighted(img_clahe, 0.7, img, 0.3, -10)
-            grayscale_image = clahe.apply(image)
-            #bw_image = cv2.adaptiveThreshold(grayscale_image, 255,
-            #                         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            #                         cv2.THRESH_BINARY, 199, 50)
-            bw_image = cv2.adaptiveThreshold(grayscale_image, 255,
-                                             cv2.ADAPTIVE_THRESH_MEAN_C,
-                                             cv2.THRESH_BINARY, 199, 50)
-            # Odwrócenie koloru dla negatywów
-            # bw_image = cv2.bitwise_not(bw_image)
-
+            # grayscale image denoising
+            # source file
             '''
-            cv2.imshow('image', blurred)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+            source_file = grayscale_image
+            # size in pixels of the template patch used to compute weights;
+            # should be odd number; recommended value == 7
+            template_window_size = 7
+            grayscale_image: numpy.ndarray = cv2.fastNlMeansDenoising(
+                                    src=source_file,
+                                    templateWindowSize=template_window_size,
+                                    searchWindowSize=21,
+                                    h=7
+                                    )
             '''
-            #encode_param = [int(cv2.IMWRITE_JPEG_QUALITY),60]
+            # Reverse color, for negative images
+            # grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
+
+            # Create black and white image using adaptive threshold.
+            # max value assigned to pixel
+            max_value: int = 255
+            # adaptive thresholding method, index 0 == mean or 1 == gaussian
+            adaptive_method = [cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.ADAPTIVE_THRESH_GAUSSIAN_C]
+            # size of pixel neighborhood used to calculate threshold value
+            block_size: int = 199
+            # value subtracted from the mean or weighted (gaussian
+            # thresholding) sum of neighbouring pixels
+            constant: int = 20
+            bw_image: numpy.ndarray = cv2.adaptiveThreshold(
+                                        src=grayscale_image,
+                                        maxValue=max_value,
+                                        adaptiveMethod=adaptive_method[0],
+                                        thresholdType=cv2.THRESH_BINARY,
+                                        blockSize=block_size,
+                                        C=constant)
+
+            # check existing output path
             if not os.path.isdir(output_path):
                 os.mkdir(output_path)
 
             os.chdir(output_path)
 
-            cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.png',
-                        bw_image)
-            #cv2.imwrite('Image_bw.jpg', bw_image, encode_param)
-            #cv2.imwrite('Image_bw_experimental.png', bw_image)
+            try:
+                # write png files with compression
+                # better for bw images
+                cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.'
+                            f'{file_extension}',
+                            bw_image, png_encode_param
+                            )
 
-            print(f'Saved: Image_{str(file_counter).zfill(3)}.png.')
+                # write jpg files with compression
+                # better for grayscale images
+                # cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.{
+                # file_extension}',
+                #            grayscale_image,
+                #            jpg_encode_param
+                #            )
+            except cv2.error as e:
+                print(f'Prawdopodobnie niewłaściwy format pliku. '
+                      f'Wybierz jpeg lub png. \n Treść błędu:\n {e}')
+                break
+
+            print(f'Saved: Image_{str(file_counter).zfill(3)}.'
+                  f'{file_extension}.')
             file_counter += 1
+
+
+def create_pdf(im_output_path:str):
+    os.chdir(im_output_path)
+    images = [Image.open(i).convert('1') for i in os.listdir(im_output_path)]
+
+    images[0].save(
+        'Out_file.pdf',
+        save_all=True,
+        append_images=images[1:]
+    )
 
 
 
 def grayscale_pillow():
     file_counter = 1
     output_path = os.path.join(folder_path, 'grayscale_pillow')
-    pil_data = None
+
     for item in os.listdir(folder_path):
 
         if item.endswith('jpg'):
-
-            image = Image.open(os.path.join(folder_path, item)).rotate(270,
-                                                                       resample=1,
-                                                                       expand=True)
-
+            image = Image.open(os.path.join(folder_path, item))
+            image = image.rotate(270, resample=1, expand=True)
 
             grayscale_image = ImageEnhance.Color(image).enhance(-1.5)
             brightness_image = ImageEnhance.Brightness(
@@ -126,22 +181,28 @@ def grayscale_pillow():
 
             output = Image.new('L', sharpen_image.size, )
             output.putdata(lst)
+
             output.convert('1', dither=None)
 
-            output = ImageOps.grayscale(image)
+            # output = ImageOps.grayscale(image)
 
-            output.save(os.path.join(output_path, f'Image_{str(file_counter).zfill(3)}.jpg'))
+            output.save(os.path.join(output_path,
+                                     f'Image_{str(file_counter).zfill(3)}'
+                                     f'.jpg'), quality=70)
 
             print(f'Image_{str(file_counter).zfill(3)}.jpg saved.')
             file_counter += 1
-            file_path = os.path.join(output_path, f'Image_'
-                                                f'{str(file_counter).zfill(3)}.jpg')
-            pil_data = PIL.Image.open(file_path).convert('RGB')
-            break
-    #return pil_data
 
 
+if __name__ == '__main_experimental__':
+     grayscale_pillow()
+'''
+grayscale_opencv(input_folder_path=folder_path,
+                 output_folder_path=output_path,
+                 jpeg_quality=50,
+                 rotate_angle=90,
+                 file_extension='png'
+                 )
+'''
 
-# grayscale_pillow()
-grayscale_opencv()
-
+    create_pdf(im_output_path=output_path)
