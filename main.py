@@ -1,6 +1,7 @@
 import os
 
 import cv2
+import numpy as np
 from PIL import Image, UnidentifiedImageError
 
 folder_path = 'C:\\Users\\YaTeż\\Desktop\\Rola\\1 Rola Ossolineum — kopia\\'
@@ -74,7 +75,17 @@ def grayscale_opencv(input_folder_path: str,
             # alpha: int|float = 1.5
             # beta: int = -120
             # image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
-            '''
+
+            # sharpening
+            # sharpening kernel
+            kernel = np.array([[0, -1, 0],
+                               [-1, 5, -1],
+                               [0, -1, 0]])
+
+            # applying sharpening kernel as filter
+            sharpened = cv2.filter2D(image, -1, kernel)
+            grayscale_image = sharpened
+
             # bilateral filter applied as better for preserving edges
             # d: diameter of pixel neighborhood; if d == 0
             # diameter is calculated based only on sigmaSpace
@@ -85,7 +96,7 @@ def grayscale_opencv(input_folder_path: str,
             # 3rd value - sigmaSpace: neighboring pixels
             sigma_space: int = 5
             image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
-            '''
+
             grayscale_image: numpy.ndarray = clahe.apply(image)
 
             # grayscale image denoising
@@ -94,17 +105,20 @@ def grayscale_opencv(input_folder_path: str,
             # size in pixels of the template patch used to compute weights;
             # should be odd number; recommended value == 7
             template_window_size = 7
-            # uzupełnić
+            # size in pixels of the window that is used to compute weighted
+            # average for given pixel; should be odd number; affects
+            # performance; recommended value == 21
             search_window_size = 21
             # uzupełnić
-            h = 7
+            h = 10
+            '''
             grayscale_image: numpy.ndarray = cv2.fastNlMeansDenoising(
                                     src=source_file,
                                     templateWindowSize=template_window_size,
                                     searchWindowSize=search_window_size,
                                     h=h
                                     )
-
+            '''
             # Reverse color, for negative images
             grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
 
@@ -118,14 +132,15 @@ def grayscale_opencv(input_folder_path: str,
             block_size: int = 199
             # value subtracted from the mean or weighted (gaussian
             # thresholding) sum of neighbouring pixels
-            constant: int = 20
+            constant: int = 10#20
             bw_image: numpy.ndarray = cv2.adaptiveThreshold(
                                         src=grayscale_image,
                                         maxValue=max_value,
-                                        adaptiveMethod=adaptive_method[0],
+                                        adaptiveMethod=adaptive_method[1],
                                         thresholdType=cv2.THRESH_BINARY,
                                         blockSize=block_size,
                                         C=constant)
+
 
             # check existing output path
             if not os.path.isdir(output_path):
