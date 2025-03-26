@@ -3,18 +3,71 @@ import os
 import cv2
 import numpy as np
 from PIL import Image, UnidentifiedImageError
+import pillow_heif
+from pypdf import PdfReader, PdfWriter
+import img2pdf
 
-folder_path = 'C:\\Users\\YaTeż\\Desktop\\Rola\\1 Rola Ossolineum — kopia\\'
-output_path: str = os.path.join(folder_path, 'opencv_')
+heic_path: str = 'C:\\Users\\YaTeż\\Desktop\\Rola\\Mikrofilmy Łopaciński'
+folder_path: str = ('C:\\Users\\YaTeż\\Desktop\\Rola\\Mikrofilmy '
+                    'Łopaciński\\jpeg')
+output_path: str = os.path.join(folder_path)#, 'opencv_')
+
+
+def heif_convert(heic_path, jpeg_quality):
+    save_file_path = os.path.join(heic_path, 'jpeg')
+    counter = 1
+    jpg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
+    print(heic_path)
+
+    files = os.listdir(heic_path)
+    for f in files:
+        if f.endswith('.HEIC'):
+
+            for i in os.listdir(heic_path):
+                os.chdir(heic_path)
+                heif_file = pillow_heif.open_heif(i,
+                                                  convert_hdr_to_8bit = False,
+                                                  bgr_mode=True,
+                                                  )
+                np_array = np.asarray(heif_file)
+
+                # contrast limited adaptive histogram equalization; outside loop
+                clip_limit: int = 5
+                tile_grid_size: tuple[int, int] = (8, 8)
+                clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
+
+                lab = cv2.cvtColor(np_array, cv2.COLOR_BGR2LAB)
+                # splitting lab to lightness [0], green-red [1] and blue-yellow
+                # [2] planes
+                lab_planes = list(cv2.split(lab))
+                # apply clahe to lightness
+                lab_planes[0] = clahe.apply(lab_planes[0])
+                # merging planes
+                lab = cv2.merge(lab_planes)
+                np_array = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+                # resize 2/3 of original image
+                np_array = cv2.resize(np_array, (0,0), fx=0.66, fy=0.66)
+
+                # check existing output path
+                if not os.path.isdir(save_file_path):
+                    os.mkdir(save_file_path)
+
+                os.chdir(save_file_path)
+
+                cv2.imwrite(f'Image_{str(counter).zfill(3)}.jpg', np_array, jpg_encode_param)
+                print(f'Image_{str(counter).zfill(3)}.jpg')
+                counter += 1
+
 
 
 # todo: add all subfunc args to grayscale_opencv, refactor for selective
 #  subfunc usage passing and deafult subfunc params
-# todo: sharpen image for reverse colors
+
 def grayscale_opencv(input_folder_path: str,
                      file_extension: str,
                      rotate_angle: int = None,
-                     jpeg_quality: int = 85,
+                     jpeg_quality: int = 65,
                      png_compression: int = 5,
                      ) -> None:
     """
@@ -49,9 +102,12 @@ def grayscale_opencv(input_folder_path: str,
     for item in os.listdir(folder_path):
         os.chdir(folder_path)
 
-        if item.endswith('jpg'):
+        if item.endswith(('.jpg', '.jpeg')):
 
-            image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
+            # for grayscale and binary images operations
+            # image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
+            # for color file operations
+            image: numpy.ndarray = cv2.imread(item, )
 
             # rotate right, left, flip vertical if rotate_angle argument is
             # provided
@@ -66,28 +122,22 @@ def grayscale_opencv(input_folder_path: str,
                           'stopnie: 90, 180 lub 270')
                     break
 
-            # contrast limited adaptive histogram equalization
+            # contrast limited adaptive histogram equalization; outside loop
             clip_limit: int = 5
             tile_grid_size: tuple[int, int] = (8, 8)
             clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
 
-            # contrast (alpha) and brightness (beta) adjustments, optional
-            # alpha: int|float = 1.5
-            # beta: int = -120
-            # image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
+            # contrast (alpha) and brightness (beta) adjustments, optional;
+            # variables outside loop;
+            # use when not using clahe
+            alpha: int|float = 0.1
+            beta: int = 1
+            image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
 
-            # sharpening
-            # sharpening kernel
-            kernel = np.array([[0, -1, 0],
-                               [-1, 5, -1],
-                               [0, -1, 0]])
 
-            # applying sharpening kernel as filter
-            sharpened = cv2.filter2D(image, -1, kernel)
-            grayscale_image = sharpened
 
             # bilateral filter applied as better for preserving edges
-            # d: diameter of pixel neighborhood; if d == 0
+            # d: diameter of pixel neighborhood; if d == 0 ; vars outside loop
             # diameter is calculated based only on sigmaSpace
             d: int = 9
             # 2nd value - sigmaColor: color differences, higher value =
@@ -95,13 +145,36 @@ def grayscale_opencv(input_folder_path: str,
             sigma_color: int = 5
             # 3rd value - sigmaSpace: neighboring pixels
             sigma_space: int = 5
-            image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
+            # image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
 
-            grayscale_image: numpy.ndarray = clahe.apply(image)
+            #clahe for color
+            lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+            # splitting lab to lightness [0], green-red [1] and blue-yellow
+            # [2] planes
+            lab_planes = list(cv2.split(lab))
+            # apply clahe to lightness
+            lab_planes[0] = clahe.apply(lab_planes[0])
+            # merging planes
+            lab = cv2.merge(lab_planes)
+            image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+
+            # clahe for grayscale
+            # image: numpy.ndarray = clahe.apply(image)
+
+            # sharpening
+            # sharpening kernel ; kerel outside loop
+            kernel = np.array([[0, -1, 0],
+                               [-1, 5, -1],
+                               [0, -1, 0]])
+
+            # applying sharpening kernel as filter
+            sharpened = cv2.filter2D(image, -1, kernel)
+            image = sharpened
 
             # grayscale image denoising
             # source file
-            source_file = grayscale_image
+            source_file = image
             # size in pixels of the template patch used to compute weights;
             # should be odd number; recommended value == 7
             template_window_size = 7
@@ -109,18 +182,33 @@ def grayscale_opencv(input_folder_path: str,
             # average for given pixel; should be odd number; affects
             # performance; recommended value == 21
             search_window_size = 21
-            # uzupełnić
+            # parameter regulating filter strength;
+            # higher h ==> better noise removal ==> remove more details
             h = 10
+            # sames as h but for color components; for most images hColor ==
+            # 10 will be enough to remove noise but not distort colors
+            h_color = 10
             '''
-            grayscale_image: numpy.ndarray = cv2.fastNlMeansDenoising(
+            image: numpy.ndarray = cv2.fastNlMeansDenoising(
                                     src=source_file,
                                     templateWindowSize=template_window_size,
                                     searchWindowSize=search_window_size,
                                     h=h
                                     )
             '''
+            # color image denoising
+            '''
+            image: numpy.ndarray = cv2.fastNlMeansDenoisingColored(
+                                    src=source_file,
+                                    templateWindowSize=template_window_size,
+                                    searchWindowSize=search_window_size,
+                                    h=h,
+                                    hColor=h_color
+                                    )
+            '''
+
             # Reverse color, for negative images
-            grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
+            # grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
 
             # Create black and white image using adaptive threshold.
             # max value assigned to pixel
@@ -133,14 +221,15 @@ def grayscale_opencv(input_folder_path: str,
             # value subtracted from the mean or weighted (gaussian
             # thresholding) sum of neighbouring pixels
             constant: int = 10#20
-            bw_image: numpy.ndarray = cv2.adaptiveThreshold(
-                                        src=grayscale_image,
+            '''
+            image: numpy.ndarray = cv2.adaptiveThreshold(
+                                        src=image,
                                         maxValue=max_value,
-                                        adaptiveMethod=adaptive_method[1],
+                                        adaptiveMethod=adaptive_method[0],
                                         thresholdType=cv2.THRESH_BINARY,
                                         blockSize=block_size,
                                         C=constant)
-
+            '''
 
             # check existing output path
             if not os.path.isdir(output_path):
@@ -151,18 +240,19 @@ def grayscale_opencv(input_folder_path: str,
             try:
                 # write png files with compression
                 # better for bw images
+                '''
                 cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.'
                             f'{file_extension}',
-                            bw_image, png_encode_param
+                            image, png_encode_param
                             )
-
+                '''
                 # write jpg files with compression
                 # better for grayscale images
-                # cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.{
-                # file_extension}',
-                #            grayscale_image,
-                #            jpg_encode_param
-                #            )
+                cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.'
+                            f'{file_extension}',
+                           image,
+                           jpg_encode_param
+                           )
             except cv2.error as e:
                 print(f'Prawdopodobnie niewłaściwy format pliku. '
                       f'Wybierz jpeg lub png. \n Treść błędu:\n {e}')
@@ -183,33 +273,142 @@ def create_pdf(im_files_path: str, im_files_ext: str, save_file_name: str):
     """
 
     pdf_file_name = f'{save_file_name}.pdf'
+
+    if not os.path.isdir(output_path+'pdf'):
+        os.mkdir(output_path+'pdf')
     os.chdir(im_files_path)
 
     try:
         # converting all images in directory to binary images
+        '''
         images = [Image.open(i).convert('1') for i in os.listdir(
             im_files_path) if i.endswith(im_files_ext)]
+        '''
+        images = [i for i in os.listdir(im_files_path) if i.endswith(
+            im_files_ext)]
+
+
+
         # create pdf form first image in dir, then appending rest of files
+        for image in images:
+            im = Image.open(image)
+            im.save(
+                pdf_file_name,'PDF', dpi=(10, 8 ))
+
+        save_dir = output_path + 'pdf'
+        single_pdfs = [p for p in os.listdir(save_dir)]
+        os.chdir(save_dir)
+        merger = PdfWriter()
+        for pdf in single_pdfs:
+            merger.append(PdfReader(pdf), 'rb')
+
+        with open('out.pdf', 'wb') as file:
+            merger.write(file)
+
+        '''
         images[0].save(
             pdf_file_name,
             save_all=True,
             append_images=images[1:]
         )
+        '''
+
+        to_compress = PdfWriter(pdf_file_name)
+        for page in to_compress.pages:
+            page.compress_content_streams()
+
+        with open('compressed.pdf', 'wb') as file:
+            to_compress.write(file)
+
     except UnidentifiedImageError as e:
         print(f'Prawdopodobnie w folderze znajdują się pliki, które nie są '
               f'plikami graficznymi. Obsługiwane formaty to jpg i png. '
               f'\nKomunikat błędu: \n{e}')
 
 
+def create_pdf_compressed(im_files_path: str,
+                          im_files_ext: str,
+                          save_file_name: str):
+
+    pdf_file_name = f'{save_file_name}.pdf'
+    save_dir = output_path + 'pdf'
+    if not os.path.isdir(save_dir):
+        os.mkdir(save_dir)
+
+    os.chdir(im_files_path)
+    print (os.getcwd())
+
+    #try:
+    images = [os.path.abspath(i) for i in os.listdir(im_files_path)
+              if i.endswith(im_files_ext)]
+
+    for i in images:
+        print (i)
+    counter = 1
+
+    os.chdir(save_dir)
+    for image in images:
+
+        im = Image.open(image)
+        single_pdf = img2pdf.convert(im.filename)
+        name = f'image_{str(counter).zfill(3)}.pdf'
+
+        im.save(
+            name, 'PDF')
+        #with open (f'{save_dir}\\{name}', 'wb') as file:
+        #    file.write(single_pdf)
+        counter += 1
+        print(name)
+    
+    #except error as e
+    single_pdfs = [p for p in os.listdir(save_dir)]
+    os.chdir(save_dir)
+
+    merger = PdfWriter()
+    for pdf in single_pdfs:
+        merger.append(PdfReader(pdf), 'rb')
+
+    with open ('out.pdf', 'wb') as file:
+        merger.write(file)
+
+
+        #with open('out.pdf', 'wb') as :
+        #    merger.append(pdf)
+    print ('files merged, going to compress')
+
+    to_compress = PdfWriter('out.pdf')
+    for page in to_compress.pages:
+        page.compress_content_streams(level=9)
+
+    with open ('compressed.pdf', 'wb') as file:
+        to_compress.write(file)
+
+    print('compression finished')
+
+
+
+
+
+
+
+
+
+
 if __name__ == '__main__':
-
+    # heif_convert(heic_path, jpeg_quality=65)
+    '''
     grayscale_opencv(input_folder_path=folder_path,
-                     jpeg_quality=50,
-                     # rotate_angle=90,
-                     file_extension='png'
+                     jpeg_quality=65,
+                     rotate_angle=None,
+                     file_extension='jpg'
                      )
-
+    
     create_pdf(im_files_path=output_path,
-               im_files_ext='png',
+               im_files_ext='jpg',
+               save_file_name='Out_file'
+               )
+    '''
+    create_pdf_compressed(im_files_path=output_path,
+               im_files_ext='jpg',
                save_file_name='Out_file'
                )
