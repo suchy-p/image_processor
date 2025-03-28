@@ -48,10 +48,13 @@ class ImageProcessor:
                                 # grayscale jpegs available on demand :
                                 # can't be both on, add check
 
-    def run_chosen_image_processes(self, ):
-        """Method running processes enabled in constructor."""
+    def image_processing_pipeline(self, ):
+        """Runs processes enabled in constructor."""
         os.chdir(self.input_dir)
-        # open
+        #listdir:
+        #   for im in listdir:
+        #       open
+        #       pipeline processes
 
         if self.rotation_angle:
             self.run_rotate_adjustment
@@ -69,6 +72,7 @@ class ImageProcessor:
 # todo: add all subfunc args to grayscale_opencv, refactor for selective
 #  subfunc usage passing and deafult subfunc params
 # todo: sharpen image for reverse colors
+# todo: add unsharp mask?
 def grayscale_opencv(input_folder_path: str,
                      file_extension: str,
                      rotate_angle: int = None,
