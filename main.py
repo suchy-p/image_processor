@@ -7,10 +7,10 @@ import pillow_heif
 from pypdf import PdfReader, PdfWriter
 import img2pdf
 
-heic_path: str = 'C:\\Users\\YaTeż\\Desktop\\Rola\\Mikrofilmy Łopaciński'
-folder_path: str = ('C:\\Users\\YaTeż\\Desktop\\Rola\\Mikrofilmy '
-                    'Łopaciński\\jpeg')
-output_path: str = os.path.join(folder_path)#, 'opencv_')
+heic_path: str = None
+folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
+                    'Rolniczo-Przemysłowy')
+output_path: str = os.path.join(folder_path, 'opencv_')
 
 
 def heif_convert(heic_path, jpeg_quality):
@@ -105,16 +105,16 @@ def grayscale_opencv(input_folder_path: str,
         if item.endswith(('.jpg', '.jpeg')):
 
             # for grayscale and binary images operations
-            # image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
+            # image: np.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
             # for color file operations
-            image: numpy.ndarray = cv2.imread(item, )
+            image: np.ndarray = cv2.imread(item, 0)
 
             # rotate right, left, flip vertical if rotate_angle argument is
             # provided
             if rotate_angle is not None:
                 # rotate image as specified in rotate variable
                 try:
-                    image: numpy.ndarray = cv2.rotate(image,
+                    image: np.ndarray = cv2.rotate(image,
                                                       rotate[rotate_angle],
                                                       )
                 except KeyError:
@@ -132,21 +132,12 @@ def grayscale_opencv(input_folder_path: str,
             # use when not using clahe
             alpha: int|float = 0.1
             beta: int = 1
-            image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
+            image: np.ndarray = cv2.convertScaleAbs(image, alpha, beta)
 
 
 
-            # bilateral filter applied as better for preserving edges
-            # d: diameter of pixel neighborhood; if d == 0 ; vars outside loop
-            # diameter is calculated based only on sigmaSpace
-            d: int = 9
-            # 2nd value - sigmaColor: color differences, higher value =
-            # higher tonal spread
-            sigma_color: int = 5
-            # 3rd value - sigmaSpace: neighboring pixels
-            sigma_space: int = 5
-            # image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
 
+            '''
             #clahe for color
             lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
             # splitting lab to lightness [0], green-red [1] and blue-yellow
@@ -157,10 +148,10 @@ def grayscale_opencv(input_folder_path: str,
             # merging planes
             lab = cv2.merge(lab_planes)
             image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
+            '''
 
             # clahe for grayscale
-            # image: numpy.ndarray = clahe.apply(image)
+            # image: np.ndarray = clahe.apply(image)
 
             # sharpening
             # sharpening kernel ; kerel outside loop
@@ -184,12 +175,12 @@ def grayscale_opencv(input_folder_path: str,
             search_window_size = 21
             # parameter regulating filter strength;
             # higher h ==> better noise removal ==> remove more details
-            h = 10
+            h = 30
             # sames as h but for color components; for most images hColor ==
             # 10 will be enough to remove noise but not distort colors
             h_color = 10
-            '''
-            image: numpy.ndarray = cv2.fastNlMeansDenoising(
+
+            image: np.ndarray = cv2.fastNlMeansDenoising(
                                     src=source_file,
                                     templateWindowSize=template_window_size,
                                     searchWindowSize=search_window_size,
@@ -197,8 +188,8 @@ def grayscale_opencv(input_folder_path: str,
                                     )
             '''
             # color image denoising
-            '''
-            image: numpy.ndarray = cv2.fastNlMeansDenoisingColored(
+            
+            image: np.ndarray = cv2.fastNlMeansDenoisingColored(
                                     src=source_file,
                                     templateWindowSize=template_window_size,
                                     searchWindowSize=search_window_size,
@@ -206,9 +197,19 @@ def grayscale_opencv(input_folder_path: str,
                                     hColor=h_color
                                     )
             '''
+            # bilateral filter applied as better for preserving edges
+            # d: diameter of pixel neighborhood; if d == 0 ; vars outside loop
+            # diameter is calculated based only on sigmaSpace
+            d: int = 9
+            # 2nd value - sigmaColor: color differences, higher value =
+            # higher tonal spread
+            sigma_color: int = 5
+            # 3rd value - sigmaSpace: neighboring pixels
+            sigma_space: int = 15
+            image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
 
             # Reverse color, for negative images
-            # grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
+            # grayscale_image: np.ndarray = cv2.bitwise_not(grayscale_image)
 
             # Create black and white image using adaptive threshold.
             # max value assigned to pixel
@@ -220,16 +221,16 @@ def grayscale_opencv(input_folder_path: str,
             block_size: int = 199
             # value subtracted from the mean or weighted (gaussian
             # thresholding) sum of neighbouring pixels
-            constant: int = 10#20
-            '''
-            image: numpy.ndarray = cv2.adaptiveThreshold(
+            constant: int = 40 #20 #10
+
+            image: np.ndarray = cv2.adaptiveThreshold(
                                         src=image,
                                         maxValue=max_value,
-                                        adaptiveMethod=adaptive_method[0],
+                                        adaptiveMethod=adaptive_method[1],
                                         thresholdType=cv2.THRESH_BINARY,
                                         blockSize=block_size,
                                         C=constant)
-            '''
+
 
             # check existing output path
             if not os.path.isdir(output_path):
@@ -396,19 +397,20 @@ def create_pdf_compressed(im_files_path: str,
 
 if __name__ == '__main__':
     # heif_convert(heic_path, jpeg_quality=65)
-    '''
+
     grayscale_opencv(input_folder_path=folder_path,
                      jpeg_quality=65,
                      rotate_angle=None,
                      file_extension='jpg'
                      )
-    
+    '''
     create_pdf(im_files_path=output_path,
                im_files_ext='jpg',
                save_file_name='Out_file'
                )
-    '''
+   
     create_pdf_compressed(im_files_path=output_path,
                im_files_ext='jpg',
                save_file_name='Out_file'
                )
+    '''

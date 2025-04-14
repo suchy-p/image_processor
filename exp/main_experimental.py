@@ -1,22 +1,26 @@
 import os
+from typing import IO, BinaryIO
 
 import cv2
+from cv2.typing import MatLike
+import mypy
 import numpy as np
 from PIL import Image, UnidentifiedImageError
-
+from tomlkit.items import Array
 
 # args for class instance
-folder_path: str = ('C:\\Users\\YaTeż\\Desktop\\Rola\\1 Rola Ossolineum — '
-                   'kopia\\')
+folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
+                    'Rolniczo-Przemysłowy')
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 
 
 class ImageProcessor:
 
-    def __init__(self, input_dir, output_dir, rotation_angle, ):
+    def __init__(self, input_dir, output_dir, rotation_angle, **kwargs):
         self.input_dir = input_dir
         self.output_dir = output_dir
+        self.file_counter = 1
         self.rotation_angle = rotation_angle
 
         self.clahe = {'enabled': True,
@@ -48,27 +52,155 @@ class ImageProcessor:
                                 # grayscale jpegs available on demand :
                                 # can't be both on, add check
 
-    def image_processing_pipeline(self, ):
+    def image_processing_pipeline(self, **config):
         """Runs processes enabled in constructor."""
-        os.chdir(self.input_dir)
-        #listdir:
-        #   for im in listdir:
-        #       open
-        #       pipeline processes
 
-        if self.rotation_angle:
-            self.run_rotate_adjustment
+        external_config = config
+        # os.chdir(self.input_dir)
+        # Create list of images for processing.
+        to_process: list[str] = [item for item in os.listdir(self.input_dir)
+                                 if os.path.isfile(os.path.abspath(item))]
+        for item in os.listdir(self.input_dir):
+            print(os.path.abspath(item), os.path.isfile(os.path.abspath(
+                item)))
 
-        if self.contrast_brightness['enabled']:
-            self.run_contrast_brightness_adjustment
+        #to_process: list[str] = os.listdir(self.input_dir)
 
-        if self.clahe['enabled']:
-            self.run_clahe_adjustment
+        print(to_process)
+        # Apply selected processes to each image
+        for item in to_process:
+            # If os.chdir is placed out of loop Open cv gets errors.
+            os.chdir(self.input_dir)
+            # Open image as Open cv object
+            image_object: MatLike = cv2.imread(item)
+
+            if self.rotation_angle:
+                image_object = self.run_rotate_adjustment(image_object,
+                                           rotation_angle=external_config[
+                                               'rotation_angle']
+                                                          )
+
+            #if self.contrast_brightness['enabled']:
+            #    self.run_contrast_brightness_adjustment
+
+            #if self.clahe['enabled']:
+            #    self.run_clahe_adjustment
+            self.write_output_file(image_object,
+                                   output_dir=external_config['output_dir'],
+                                   file_extension=external_config[
+                                       'file_extension'],
+                                   quality=external_config['quality'])
+
+        # Reset file counter after all files in dir have been processed.
+        self.file_counter = 1
+
+
+    def run_rotate_adjustment(self,
+                              image_object: MatLike,
+                              rotation_angle: int,
+                              ) -> MatLike:
+        """
+        Rotate Open cv object by given value.
+        :param image_object: Open cv object to rotate, ie. image file
+         converted to numpy array.
+        :param rotation_angle: Angle for rotating object clockwise by 90
+         degrees steps: 90, 180 or 270 degrees.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        # Dict of supported rotation angles.
+        rotate: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
+                                  180: cv2.ROTATE_180,
+                                  270: cv2.ROTATE_90_COUNTERCLOCKWISE,
+                                  }
+
+        # Apply image rotation.
+        image: MatLike = image_object
+        rotated_image = cv2.rotate(image, rotate.get(rotation_angle,
+                                                     'Invalid rotation value.'
+                                                     )
+                                   )
+
+        return rotated_image
+
+    def write_output_file(self,
+                          image_object: MatLike,
+                          output_dir: str,
+                          file_extension: str,
+                          quality: int|None = None
+                          ) -> None:
+        """
+        Write Open cv object as image file of type chosen by user
+        (suggested formats: jpg or png).
+        :param image_object: Open cv object for writing as file.
+        :param output_dir: Path for writing file, class parameter.
+        :param file_extension: Image file format extension, suggested jpeg
+         for color and png for black and white images. Must be passed by user.
+        :param quality: Quality of jpg file in range from 0 to 100 or
+         compression of png file in range form 0 to 9;
+         if None Open cv applies default values: 95 for jpg, 3 for png.
+        :return: Image file of chosen file type.
+        """
+        image_to_write: MatLike = image_object
+        file_name = f'Image_{str(self.file_counter).zfill(4)}.{file_extension}'
+        write_quality_param: list[int|None] = [int(cv2.IMWRITE_JPEG_QUALITY),
+                                               quality
+                                               ]
+
+        # Change jpeg quality to png compression if file_extension == png.
+        if file_extension == 'png':
+            write_quality_param: list[int | None] = [
+                int(cv2.IMWRITE_PNG_COMPRESSION),
+                quality
+            ]
+            # Check if provided png compression factor is correct when not
+            # using default value.
+            if quality is not None:
+                assert quality in range (0, 10), 'Compression value should '\
+                                                'be integer between 0 and 9.'
+
+        # Check if provided jpg quality value is correct when not using
+        # default value.
+        if file_extension == 'jpg' and quality is not None:
+            assert quality in range (0, 101), 'Quality value should be '\
+                                               'integer between 0 and 100.'
+
+        # Check for existing output directory, then change working dir.
+        if not os.path.isdir(output_dir):
+            os.mkdir(output_dir)
+        os.chdir(output_path)
+
+        # Write Open cv object as image file.
+        try:
+            cv2.imwrite(file_name,
+                        image_to_write,
+                        write_quality_param
+                        )
+            print (f'{file_name} file created.')
+            self.file_counter += 1
+        # In case of typo in provided file_extension.
+        except cv2.error as e:
+            print(f'Probably invalid file extension. Choose jpg or png. \n '
+                  f'Error message:\n {e}')
+
+config = {'input_dir': 'C:\\Users\\Patryk\\Desktop\\Tygodnik Rolniczo'
+                         '-Przemysłowy',
+          'output_dir': str(os.path.join(folder_path, 'opencv_')),
+          'rotation_angle': 90,
+          'file_extension': 'jpg',
+          'quality': 60
+}
+
+
+
+image_processor = ImageProcessor(**config)
+
+image_processor.image_processing_pipeline(**config)
 
 
 
 
-
+'''
 # todo: add all subfunc args to grayscale_opencv, refactor for selective
 #  subfunc usage passing and deafult subfunc params
 # todo: sharpen image for reverse colors
@@ -173,14 +305,14 @@ def grayscale_opencv(input_folder_path: str,
             search_window_size = 21
             # uzupełnić
             h = 10
-            '''
+            
             grayscale_image: numpy.ndarray = cv2.fastNlMeansDenoising(
                                     src=source_file,
                                     templateWindowSize=template_window_size,
                                     searchWindowSize=search_window_size,
                                     h=h
                                     )
-            '''
+            
             # Reverse color, for negative images
             grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
 
@@ -264,5 +396,5 @@ def create_pdf(im_files_path: str, im_files_ext: str, save_file_name: str):
 
 
 if __name__ == '__main__':
-
+'''
 
