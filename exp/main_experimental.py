@@ -17,11 +17,10 @@ rotate_angle: int = 90
 
 class ImageProcessor:
 
-    def __init__(self, input_dir, output_dir, rotation_angle, **kwargs):
+    def __init__(self, input_dir, output_dir):
         self.input_dir = input_dir
         self.output_dir = output_dir
         self.file_counter = 1
-        self.rotation_angle = rotation_angle
 
         self.clahe = {'enabled': True,
                       'clip_limit': 5,
@@ -56,7 +55,7 @@ class ImageProcessor:
         """Runs processes enabled in constructor."""
 
         external_config = config
-        # os.chdir(self.input_dir)
+        os.chdir(self.input_dir)
         # Create list of images for processing.
         to_process: list[str] = [item for item in os.listdir(self.input_dir)
                                  if os.path.isfile(os.path.abspath(item))]
@@ -69,40 +68,54 @@ class ImageProcessor:
         print(to_process)
         # Apply selected processes to each image
         for item in to_process:
-            # If os.chdir is placed out of loop Open cv gets errors.
+            # If os.chdir is placed out of loop only Open cv gets errors.
             os.chdir(self.input_dir)
             # Open image as Open cv object
             image_object: MatLike = cv2.imread(item)
 
-            if self.rotation_angle:
+            # Check if given functionality is enabled in config.
+            if external_config['run_rotate_adjustment'][0]:
+                # Store config params as variable.
+                rotate_params = external_config['run_rotate_adjustment'][1]
                 image_object = self.run_rotate_adjustment(image_object,
-                                           rotation_angle=external_config[
+                                           rotation_angle=rotate_params[
                                                'rotation_angle']
-                                                          )
+                                                )
+
+            if external_config['sharpen_image'][0]:
+                sharpen_params = external_config['sharpen_image'][1]
+                image_object = self.sharpen_image(image_object,
+                                                  kernel=sharpen_params[
+                                                      'kernel'],
+                                                  strength=sharpen_params[
+                                                      'strength']
+                                                  )
 
             #if self.contrast_brightness['enabled']:
             #    self.run_contrast_brightness_adjustment
 
             #if self.clahe['enabled']:
             #    self.run_clahe_adjustment
-            self.write_output_file(image_object,
-                                   output_dir=external_config['output_dir'],
-                                   file_extension=external_config[
-                                       'file_extension'],
-                                   quality=external_config['quality'])
+            if external_config['write_output_file'][0]:
+                write_params = external_config['write_output_file'][1]
+                self.write_output_file(image_object,
+                                       output_dir=self.output_dir,
+                                       file_extension=write_params[
+                                           'file_extension'],
+                                       quality=write_params['quality']
+                                       )
 
         # Reset file counter after all files in dir have been processed.
         self.file_counter = 1
 
-
-    def run_rotate_adjustment(self,
-                              image_object: MatLike,
+    @staticmethod
+    def run_rotate_adjustment(image_object: MatLike,
                               rotation_angle: int,
                               ) -> MatLike:
         """
         Rotate Open cv object by given value.
-        :param image_object: Open cv object to rotate, ie. image file
-         converted to numpy array.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
         :param rotation_angle: Angle for rotating object clockwise by 90
          degrees steps: 90, 180 or 270 degrees.
         :return: Numpy array overwriting original image_object for further
@@ -122,6 +135,57 @@ class ImageProcessor:
                                    )
 
         return rotated_image
+
+    @staticmethod
+    def sharpen_image(image_object: MatLike,
+                      kernel: str,
+                      strength: int = 0
+                      ) -> MatLike:
+        """
+        Apply sharpen or unsharp masking on an image using kernels.
+        It is possible to add more kernels in future if needed.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :param kernel: Kernel chosen from 'kernels' dict.
+        :param strength: Multiplier for a kernel ranging from 1.00 (default)
+         to 1.99.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        filter_strength = strength
+
+        # Check if strength value is between 0 and 99.
+        if 0 > filter_strength or 100 < filter_strength:
+            print(f'Strength value should be between 0 and 99, got '
+                  f'{filter_strength} instead.\n'
+                  'Applying default value.')
+            filter_strength = 0
+
+        # Standard sharpening kernel from Wikipedia.
+        sharpening_kernel = np.multiply(float(f'1.{filter_strength}'),
+                                        np.array([[0, -1, 0],
+                                                [-1, 5, -1],
+                                                [0, -1, 0]])
+                                        )
+
+        # Just like above, untested as of 16.04.25. exp 0.00425
+        unsharp_masking_kernel = np.multiply(0.00390625 * float(
+                                        f'1.{filter_strength}'),
+                                    np.array([[1, 4, 6, 4, 1],
+                                          [4, 16, 24, 16, 4],
+                                          [6, 24, 46, 24, 6],
+                                          [4, 16, 24, 16, 4],
+                                           [1, 4, 6, 4, 1]])
+                                             )
+
+        # Dict of defined kernels to choose from.
+        kernels = {'sharpen': sharpening_kernel,
+                   'unsharp mask': unsharp_masking_kernel,
+                   }
+
+        # Applying chosen kernel to image.
+        apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
+        return apply_kernel
 
     def write_output_file(self,
                           image_object: MatLike,
@@ -183,17 +247,20 @@ class ImageProcessor:
             print(f'Probably invalid file extension. Choose jpg or png. \n '
                   f'Error message:\n {e}')
 
-config = {'input_dir': 'C:\\Users\\Patryk\\Desktop\\Tygodnik Rolniczo'
-                         '-Przemysłowy',
-          'output_dir': str(os.path.join(folder_path, 'opencv_')),
-          'rotation_angle': 90,
-          'file_extension': 'jpg',
-          'quality': 60
-}
+
+config = {'run_rotate_adjustment': [True, {'rotation_angle': 90}],
+          'write_output_file': [True,
+                                {'file_extension': 'jpg',
+                                 'quality': 60
+                               }],
+          'sharpen_image': [True, {'kernel': 'sharpen',
+                                   'strength': -199
+                                           }]
+        }
 
 
-
-image_processor = ImageProcessor(**config)
+image_processor = ImageProcessor(input_dir=folder_path,
+                                 output_dir=output_path)
 
 image_processor.image_processing_pipeline(**config)
 
@@ -201,6 +268,7 @@ image_processor.image_processing_pipeline(**config)
 
 
 '''
+
 # todo: add all subfunc args to grayscale_opencv, refactor for selective
 #  subfunc usage passing and deafult subfunc params
 # todo: sharpen image for reverse colors
