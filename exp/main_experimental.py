@@ -13,6 +13,12 @@ folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
                     'Rolniczo-Przemysłowy')
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
+# todo : clahe,
+#       brightness and contrast,
+#       revert colors,
+#       bilateral filter [?],
+#       write bw images,
+#       create pdf [with reducing image size]
 
 
 class ImageProcessor:
@@ -22,65 +28,37 @@ class ImageProcessor:
         self.output_dir = output_dir
         self.file_counter = 1
 
-        self.clahe = {'enabled': True,
-                      'clip_limit': 5,
-                      'tile_grid_size': (8, 8)
-                      }
-        self.contrast_brightness = {'enabled': False,
-                                    'alpha': 1.5,
-                                    'beta': -120
-                                    }
-        self.sharpen = {'enabled': True,
-                        'value': 0
-                        }, # add value to array
-        self.bilateral_filter = {'enabled': False,
-                                 'd': 9,
-                                 'sigma_color': 5,
-                                 'sigma_space': 5
-                                 }
-        self.black_white_threshold = {'enabled': True,
-                                      'max_value': 255,
-                                      'adaptive_method': 1,
-                                      'block_size': 199,
-                                      ' constant': 10
-                                      }
-        self.output_images = {'extension': '.png',
-                              'quality': 5
-                              }
-                                # default bw png files,
-                                # grayscale jpegs available on demand :
-                                # can't be both on, add check
+        self.color_space = {'color': cv2.IMREAD_COLOR,
+                            'grayscale': cv2.IMREAD_GRAYSCALE,
+                            }
+
 
     def image_processing_pipeline(self, **config):
         """Runs processes enabled in constructor."""
 
         external_config = config
-        os.chdir(self.input_dir)
+        color_space = self.color_space[external_config['color_space']]
+
         # Create list of images for processing.
+        os.chdir(self.input_dir)
         to_process: list[str] = [item for item in os.listdir(self.input_dir)
                                  if os.path.isfile(os.path.abspath(item))]
-        for item in os.listdir(self.input_dir):
-            print(os.path.abspath(item), os.path.isfile(os.path.abspath(
-                item)))
 
-        #to_process: list[str] = os.listdir(self.input_dir)
-
-        print(to_process)
         # Apply selected processes to each image
         for item in to_process:
             # If os.chdir is placed out of loop only Open cv gets errors.
             os.chdir(self.input_dir)
             # Open image as Open cv object
-            image_object: MatLike = cv2.imread(item)
+            image_object: MatLike = cv2.imread(item, color_space)
 
             # Check if given functionality is enabled in config.
             if external_config['run_rotate_adjustment'][0]:
                 # Store config params as variable.
                 rotate_params = external_config['run_rotate_adjustment'][1]
-                image_object = self.run_rotate_adjustment(image_object,
-                                           rotation_angle=rotate_params[
+                image_object = self.rotate_image(image_object,
+                                                 rotation_angle=rotate_params[
                                                'rotation_angle']
-                                                )
+                                                 )
 
             if external_config['sharpen_image'][0]:
                 sharpen_params = external_config['sharpen_image'][1]
@@ -91,6 +69,14 @@ class ImageProcessor:
                                                       'strength']
                                                   )
 
+            if external_config['denoise_image'][0]:
+                denoise_params = external_config['denoise_image'][1]
+                image_object = self.denoise_image(image_object,
+                                                  color_space=color_space,
+                                                  filter_strength=
+                                                  denoise_params[
+                                                      'filter_strength']
+                                                  )
             #if self.contrast_brightness['enabled']:
             #    self.run_contrast_brightness_adjustment
 
@@ -108,10 +94,57 @@ class ImageProcessor:
         # Reset file counter after all files in dir have been processed.
         self.file_counter = 1
 
+    @ staticmethod
+    def denoise_image(image_object: MatLike,
+                      color_space: int,
+                      filter_strength: int) -> MatLike:
+        """
+        Apply denoising filter to an Open cv object. Apply to noised images
+         or after using sharpening kernel.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :param color_space: Color space set for processed images; color or
+         grayscale
+        :param filter_strength: Higher value means better noise removal at
+         the cost of removing image details and distorting colors (in color
+         images).
+         Recommended values:
+            colors - 10
+            grayscale - 30
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        image = image_object
+        denoised_image = None
+        # size in pixels of the template patch used to compute weights;
+        # should be odd number; recommended value == 7
+        template_window_size = 7
+        # size in pixels of the window that is used to compute weighted
+        # average for given pixel; should be odd number; affects
+        # performance; recommended value == 21
+        search_window_size = 21
+
+        if color_space == 1:
+            denoised_image = cv2.fastNlMeansDenoisingColored(
+                src=image,
+                templateWindowSize=template_window_size,
+                searchWindowSize=search_window_size,
+                hColor=filter_strength
+            )
+        elif color_space == 0:
+            denoised_image = cv2.fastNlMeansDenoising(
+                src=image,
+                templateWindowSize=template_window_size,
+                searchWindowSize=search_window_size,
+                h=filter_strength
+            )
+
+        return denoised_image
+
     @staticmethod
-    def run_rotate_adjustment(image_object: MatLike,
-                              rotation_angle: int,
-                              ) -> MatLike:
+    def rotate_image(image_object: MatLike,
+                     rotation_angle: int,
+                     ) -> MatLike:
         """
         Rotate Open cv object by given value.
         :param image_object: Open cv object, ie. image file converted to numpy
@@ -180,12 +213,16 @@ class ImageProcessor:
 
         # Dict of defined kernels to choose from.
         kernels = {'sharpen': sharpening_kernel,
-                   'unsharp mask': unsharp_masking_kernel,
+                   'unsharp_mask': unsharp_masking_kernel,
                    }
 
         # Applying chosen kernel to image.
         apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
         return apply_kernel
+
+    #@ staticmethod
+    #def apply_clahe(image: MatLike,
+    #                           ):
 
     def write_output_file(self,
                           image_object: MatLike,
@@ -248,14 +285,16 @@ class ImageProcessor:
                   f'Error message:\n {e}')
 
 
-config = {'run_rotate_adjustment': [True, {'rotation_angle': 90}],
+config = {'color_space': 'color',
+          'run_rotate_adjustment': [True, {'rotation_angle': 90}],
           'write_output_file': [True,
                                 {'file_extension': 'jpg',
                                  'quality': 60
                                }],
           'sharpen_image': [True, {'kernel': 'sharpen',
-                                   'strength': -199
-                                           }]
+                                   'strength': 0
+                                           }],
+          'denoise_image': [True, {'filter_strength': 10}]
         }
 
 
