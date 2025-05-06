@@ -17,7 +17,8 @@ rotate_angle: int = 90
 #       brightness and contrast,
 #       bilateral filter [?],
 #       write bw images,
-#       create pdf [with reducing image size]
+#       create pdf [with reducing image size],
+#       heif convert
 
 
 class ImageProcessor:
@@ -63,6 +64,15 @@ class ImageProcessor:
             # No config params, since method does only color inversion.
                 image_object = self.reverse_color(image_object)
 
+            if (external_config['contrast_brightness'][0] and not
+                    external_config['clahe'][0]):
+                c_b_params = external_config['contrast_brightness'][1]
+                image_object = self.contrast_brightness(image_object,
+                                                        alpha=c_b_params[
+                                                            'alpha'],
+                                                        beta=c_b_params[
+                                                            'beta']
+                                                        )
 
             if external_config['sharpen_image'][0]:
                 sharpen_params = external_config['sharpen_image'][1]
@@ -97,6 +107,28 @@ class ImageProcessor:
 
         # Reset file counter after all files in dir have been processed.
         self.file_counter = 1
+
+    @staticmethod
+    def contrast_brightness(image_object: MatLike,
+                            alpha: int|float,
+                            beta: int) -> MatLike:
+        """
+        Contrast and brightness adjustment, apply when not using clahe.
+        :param image_object:  Open cv object, ie. image file converted to numpy
+         array.
+        :param alpha: Contrast value. Value between 0 and 1 lowers the
+         contrast, while value above 1 increases it.
+        :param beta: Brightness value. Suggested value between -127 and 127.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        image = image_object
+        alpha_value = alpha
+        beta_value = beta
+
+        image = cv2.convertScaleAbs(image, alpha=alpha_value, beta=beta_value)
+
+        return image
 
     @ staticmethod
     def denoise_image(image_object: MatLike,
@@ -304,17 +336,22 @@ class ImageProcessor:
                   f'Error message:\n {e}')
 
 
-config = {'color_space': 'grayscale',
+config = {'color_space': 'color',
           'run_rotate_adjustment': [True, {'rotation_angle': 90}],
-          'reverse_colors': [True],
+          'reverse_colors': [False],
           'write_output_file': [True,
                                 {'file_extension': 'jpg',
                                  'quality': 60
                                }],
-          'sharpen_image': [True, {'kernel': 'sharpen',
+          'contrast_brightness': [True,
+                                  {'alpha': 1.5,
+                                  'beta': -50
+                                   }],
+          'clahe': [False],
+          'sharpen_image': [False, {'kernel': 'sharpen',
                                    'strength': 0
                                            }],
-          'denoise_image': [True, {'filter_strength': 10}]
+          'denoise_image': [False, {'filter_strength': 10}]
         }
 
 
