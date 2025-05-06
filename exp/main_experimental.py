@@ -15,7 +15,6 @@ output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo : clahe,
 #       brightness and contrast,
-#       revert colors,
 #       bilateral filter [?],
 #       write bw images,
 #       create pdf [with reducing image size]
@@ -59,6 +58,11 @@ class ImageProcessor:
                                                  rotation_angle=rotate_params[
                                                'rotation_angle']
                                                  )
+
+            if external_config['reverse_colors'][0]:
+            # No config params, since method does only color inversion.
+                image_object = self.reverse_color(image_object)
+
 
             if external_config['sharpen_image'][0]:
                 sharpen_params = external_config['sharpen_image'][1]
@@ -140,6 +144,21 @@ class ImageProcessor:
             )
 
         return denoised_image
+
+    @staticmethod
+    def reverse_color(image_object: MatLike) -> MatLike:
+        """
+        Reverse image colors. Useful for negative microforms or to enhance
+         visibility of fading writing.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        image = image_object
+        image = cv2.bitwise_not(image)
+
+        return image
 
     @staticmethod
     def rotate_image(image_object: MatLike,
@@ -285,8 +304,9 @@ class ImageProcessor:
                   f'Error message:\n {e}')
 
 
-config = {'color_space': 'color',
+config = {'color_space': 'grayscale',
           'run_rotate_adjustment': [True, {'rotation_angle': 90}],
+          'reverse_colors': [True],
           'write_output_file': [True,
                                 {'file_extension': 'jpg',
                                  'quality': 60
