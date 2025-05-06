@@ -14,11 +14,11 @@ folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo : clahe,
-#       brightness and contrast,
 #       bilateral filter [?],
 #       write bw images,
 #       create pdf [with reducing image size],
 #       heif convert
+#       apply using default values
 
 
 class ImageProcessor:
@@ -64,8 +64,8 @@ class ImageProcessor:
             # No config params, since method does only color inversion.
                 image_object = self.reverse_color(image_object)
 
-            if (external_config['contrast_brightness'][0] and not
-                    external_config['clahe'][0]):
+            if (external_config['contrast_brightness'][0]
+                    and not external_config['clahe'][0]):
                 c_b_params = external_config['contrast_brightness'][1]
                 image_object = self.contrast_brightness(image_object,
                                                         alpha=c_b_params[
@@ -83,6 +83,14 @@ class ImageProcessor:
                                                       'strength']
                                                   )
 
+            if external_config['bilateral_filter'][0]:
+                bilateral_params = external_config['bilateral_filter'][1]
+                image_object = self.bilateral_filter(image_object,
+                                                     d=bilateral_params['d'],
+                                                     sigma_color=bilateral_params['sigma_color'],
+                                                     sigma_space=bilateral_params['sigma_space']
+                                                     )
+
             if external_config['denoise_image'][0]:
                 denoise_params = external_config['denoise_image'][1]
                 image_object = self.denoise_image(image_object,
@@ -91,11 +99,7 @@ class ImageProcessor:
                                                   denoise_params[
                                                       'filter_strength']
                                                   )
-            #if self.contrast_brightness['enabled']:
-            #    self.run_contrast_brightness_adjustment
 
-            #if self.clahe['enabled']:
-            #    self.run_clahe_adjustment
             if external_config['write_output_file'][0]:
                 write_params = external_config['write_output_file'][1]
                 self.write_output_file(image_object,
@@ -109,12 +113,44 @@ class ImageProcessor:
         self.file_counter = 1
 
     @staticmethod
+    def bilateral_filter(image_object: MatLike,
+                         d: int = 9,
+                         sigma_color: int = 75,
+                         sigma_space:int = 75) -> MatLike:
+        """
+        Bilateral filter as alternative to other noise removal techniques.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :param d: Diameter of the pixel neighbourhood used for filtering;
+         if d == 0 diameter is calculated based only on sigma_space.
+          Default value == 9.
+        :param sigma_color: Color deviation value. Higher value means
+         higher tonal spread, ie. colors farther away from each other
+          will be mixed.
+          Default value == 75.
+        :param sigma_space: Second parameter defining extent of pixel
+         neighbourhood; higher value means that the further pixels will be
+          mixed if their colors lie within sigma_color range.
+          Default value == 75.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+
+        image = image_object
+        image = cv2.bilateralFilter(image,
+                                    d=d,
+                                    sigmaColor=sigma_color,
+                                    sigmaSpace=sigma_space)
+
+        return image
+
+    @staticmethod
     def contrast_brightness(image_object: MatLike,
                             alpha: int|float,
                             beta: int) -> MatLike:
         """
         Contrast and brightness adjustment, apply when not using clahe.
-        :param image_object:  Open cv object, ie. image file converted to numpy
+        :param image_object: Open cv object, ie. image file converted to numpy
          array.
         :param alpha: Contrast value. Value between 0 and 1 lowers the
          contrast, while value above 1 increases it.
@@ -343,15 +379,20 @@ config = {'color_space': 'color',
                                 {'file_extension': 'jpg',
                                  'quality': 60
                                }],
-          'contrast_brightness': [True,
+          'contrast_brightness': [False,
                                   {'alpha': 1.5,
                                   'beta': -50
                                    }],
           'clahe': [False],
-          'sharpen_image': [False, {'kernel': 'sharpen',
+          'sharpen_image': [True, {'kernel': 'sharpen',
                                    'strength': 0
                                            }],
-          'denoise_image': [False, {'filter_strength': 10}]
+          'bilateral_filter': [False,
+                               {'d': 9,
+                                'sigma_color': 75,
+                                'sigma_space': 75
+                                }],
+          'denoise_image': [True, {'filter_strength': 10}]
         }
 
 
