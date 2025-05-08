@@ -104,6 +104,18 @@ class ImageProcessor:
                                                   params['filter_strength']
                                                   )
 
+            if external_config['black_and_white'][0]:
+                params = external_config['black_and_white'][1]
+                image_object = self.black_and_white(image_object,
+                                                    method=params['method'],
+                                                    max_value=params[
+                                                        'max_value'],
+                                                    block_size=params[
+                                                        'block_size'],
+                                                    constant=params[
+                                                        'constant']
+                                                    )
+
             if external_config['write_output_file'][0]:
                 params = external_config['write_output_file'][1]
                 self.write_output_file(image_object,
@@ -148,6 +160,40 @@ class ImageProcessor:
         return image
 
     @staticmethod
+    def black_and_white(image_object: MatLike,
+                        method: int,
+                        max_value: int = 255,
+                        block_size: int = 199,
+                        constant: int = 40) -> MatLike:
+        """
+         Create black and white images using adaptive thresholding.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :param method: Choose between thresholding methods. Mean: 0,
+         gaussian: 1.
+        :param max_value: Max value assigned to pixel.
+        :param block_size: Size of pixel neighborhood used to calculate
+         threshold value.
+        :param constant: Value subtracted from the mean or weighted (gaussian
+          thresholding) sum of neighbouring pixels
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+        image = image_object
+        adaptive_method = [cv2.ADAPTIVE_THRESH_MEAN_C,
+                           cv2.ADAPTIVE_THRESH_GAUSSIAN_C]
+
+        image = cv2.adaptiveThreshold(
+            src=image,
+            maxValue=max_value,
+            adaptiveMethod=adaptive_method[method],
+            thresholdType=cv2.THRESH_BINARY,
+            blockSize=block_size,
+            C=constant)
+
+        return image
+
+    @staticmethod
     def clahe(image_object: MatLike,
               color_space: int,
               clip_limit: int = 40,
@@ -155,6 +201,8 @@ class ImageProcessor:
         """
         Apply contrast limited adaptive histogram equalization for
          increased readability, especially for darkened areas of image.
+         Suggested for writing black and white output images, but can
+          process color images also.
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
         :param color_space: Color space set for processed images; color or
@@ -424,21 +472,27 @@ config = {'color_space': 'grayscale',
                                 {'file_extension': 'jpg',
                                  'quality': 60
                                }],
-          'contrast_brightness': [True,
+          'contrast_brightness': [False,
                                   {'alpha': 1.5,
                                   'beta': -50
                                    }],
-          'clahe': [True, {'clip_limit': 40,
+          'clahe': [False, {'clip_limit': 40,
                             'tile_grid_size': (8, 8)
                            }],
-          'sharpen_image': [True, {'kernel': 'sharpen',
+          'sharpen_image': [True, {'kernel': 'unsharp_mask',
                                    'strength': 0
                                            }],
-          'bilateral_filter': [True,
+          'bilateral_filter': [False,
                                {'d': 9,
                                 'sigma_color': 75,
                                 'sigma_space': 75
                                 }],
+          'black_and_white': [True,
+                              {'method': 1,
+                               'max_value': 255,
+                               'block_size': 199,
+                               'constant': 40
+                               }],
           'denoise_image': [True, {'filter_strength': 10}]
         }
 
