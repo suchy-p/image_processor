@@ -14,11 +14,11 @@ folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo : clahe,
-#       bilateral filter [?],
 #       write bw images,
 #       create pdf [with reducing image size],
 #       heif convert
-#       apply using default values
+#       apply using default values [right now, or in gui, taking them from
+#       method params?]
 
 
 class ImageProcessor:
@@ -54,9 +54,9 @@ class ImageProcessor:
             # Check if given functionality is enabled in config.
             if external_config['run_rotate_adjustment'][0]:
                 # Store config params as variable.
-                rotate_params = external_config['run_rotate_adjustment'][1]
+                params = external_config['run_rotate_adjustment'][1]
                 image_object = self.rotate_image(image_object,
-                                                 rotation_angle=rotate_params[
+                                                 rotation_angle=params[
                                                'rotation_angle']
                                                  )
 
@@ -64,49 +64,52 @@ class ImageProcessor:
             # No config params, since method does only color inversion.
                 image_object = self.reverse_color(image_object)
 
-            if (external_config['contrast_brightness'][0]
-                    and not external_config['clahe'][0]):
-                c_b_params = external_config['contrast_brightness'][1]
+            if external_config['clahe'][0]:
+                params = external_config['clahe'][1]
+                image_object = self.clahe(image_object,
+                                          color_space=color_space,
+                                          clip_limit=params['clip_limit'],
+                                          tile_grid_size=params[
+                                              'tile_grid_size'])
+
+            if external_config['contrast_brightness'][0]:
+                params = external_config['contrast_brightness'][1]
                 image_object = self.contrast_brightness(image_object,
-                                                        alpha=c_b_params[
-                                                            'alpha'],
-                                                        beta=c_b_params[
-                                                            'beta']
+                                                        alpha=params['alpha'],
+                                                        beta=params['beta']
                                                         )
 
             if external_config['sharpen_image'][0]:
-                sharpen_params = external_config['sharpen_image'][1]
+                params = external_config['sharpen_image'][1]
                 image_object = self.sharpen_image(image_object,
-                                                  kernel=sharpen_params[
-                                                      'kernel'],
-                                                  strength=sharpen_params[
-                                                      'strength']
+                                                  kernel=params['kernel'],
+                                                  strength=params['strength']
                                                   )
 
             if external_config['bilateral_filter'][0]:
-                bilateral_params = external_config['bilateral_filter'][1]
+                params = external_config['bilateral_filter'][1]
                 image_object = self.bilateral_filter(image_object,
-                                                     d=bilateral_params['d'],
-                                                     sigma_color=bilateral_params['sigma_color'],
-                                                     sigma_space=bilateral_params['sigma_space']
+                                                     d=params['d'],
+                                                     sigma_color=params[
+                                                         'sigma_color'],
+                                                     sigma_space=params[
+                                                         'sigma_space']
                                                      )
 
             if external_config['denoise_image'][0]:
-                denoise_params = external_config['denoise_image'][1]
+                params = external_config['denoise_image'][1]
                 image_object = self.denoise_image(image_object,
                                                   color_space=color_space,
                                                   filter_strength=
-                                                  denoise_params[
-                                                      'filter_strength']
+                                                  params['filter_strength']
                                                   )
 
             if external_config['write_output_file'][0]:
-                write_params = external_config['write_output_file'][1]
+                params = external_config['write_output_file'][1]
                 self.write_output_file(image_object,
                                        output_dir=self.output_dir,
-                                       file_extension=write_params[
-                                           'file_extension'],
-                                       quality=write_params['quality']
+                                       file_extension=params['file_extension'],
+                                       quality=params['quality']
                                        )
 
         # Reset file counter after all files in dir have been processed.
@@ -145,11 +148,53 @@ class ImageProcessor:
         return image
 
     @staticmethod
+    def clahe(image_object: MatLike,
+              color_space: int,
+              clip_limit: int = 40,
+              tile_grid_size: tuple[int, int] = (8, 8)) -> MatLike:
+        """
+        Apply contrast limited adaptive histogram equalization for
+         increased readability, especially for darkened areas of image.
+        :param image_object: Open cv object, ie. image file converted to numpy
+         array.
+        :param color_space: Color space set for processed images; color or
+         grayscale.
+        :param clip_limit: Threshold for contrast limiting. Default value: 40.
+        :param tile_grid_size: Sets row and column size of tile used to
+         divide image for applying clahe. Default value: 8 rows, 8 columns.
+        :return: Numpy array overwriting original image_object for further
+         manipulations.
+        """
+
+        image = image_object
+        clahe = cv2.createCLAHE(clipLimit=clip_limit,
+                                tileGridSize=tile_grid_size)
+
+        if color_space == 0:
+            image = clahe.apply(image)
+
+        elif color_space == 1:
+            # Convert image to lab color space.
+            lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+            # Split lab to lightness [0], green-red [1] and blue-yellow
+            # [2] planes.
+            lab_planes = list(cv2.split(lab))
+            # Apply clahe to lightness plane.
+            lab_planes[0] = clahe.apply(lab_planes[0])
+            # Merge all planes.
+            lab = cv2.merge(lab_planes)
+            # Convert lab to bgr color space.
+            image = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
+        return image
+
+    @staticmethod
     def contrast_brightness(image_object: MatLike,
                             alpha: int|float,
                             beta: int) -> MatLike:
         """
-        Contrast and brightness adjustment, apply when not using clahe.
+        Contrast and brightness adjustment. You may want to apply it when not
+         using clahe.
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
         :param alpha: Contrast value. Value between 0 and 1 lowers the
@@ -176,7 +221,7 @@ class ImageProcessor:
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
         :param color_space: Color space set for processed images; color or
-         grayscale
+         grayscale.
         :param filter_strength: Higher value means better noise removal at
          the cost of removing image details and distorting colors (in color
          images).
@@ -196,19 +241,19 @@ class ImageProcessor:
         # performance; recommended value == 21
         search_window_size = 21
 
-        if color_space == 1:
-            denoised_image = cv2.fastNlMeansDenoisingColored(
-                src=image,
-                templateWindowSize=template_window_size,
-                searchWindowSize=search_window_size,
-                hColor=filter_strength
-            )
-        elif color_space == 0:
+        if color_space == 0:
             denoised_image = cv2.fastNlMeansDenoising(
                 src=image,
                 templateWindowSize=template_window_size,
                 searchWindowSize=search_window_size,
                 h=filter_strength
+            )
+        elif color_space == 1:
+            denoised_image = cv2.fastNlMeansDenoisingColored(
+                src=image,
+                templateWindowSize=template_window_size,
+                searchWindowSize=search_window_size,
+                hColor=filter_strength
             )
 
         return denoised_image
@@ -372,22 +417,24 @@ class ImageProcessor:
                   f'Error message:\n {e}')
 
 
-config = {'color_space': 'color',
+config = {'color_space': 'grayscale',
           'run_rotate_adjustment': [True, {'rotation_angle': 90}],
           'reverse_colors': [False],
           'write_output_file': [True,
                                 {'file_extension': 'jpg',
                                  'quality': 60
                                }],
-          'contrast_brightness': [False,
+          'contrast_brightness': [True,
                                   {'alpha': 1.5,
                                   'beta': -50
                                    }],
-          'clahe': [False],
+          'clahe': [True, {'clip_limit': 40,
+                            'tile_grid_size': (8, 8)
+                           }],
           'sharpen_image': [True, {'kernel': 'sharpen',
                                    'strength': 0
                                            }],
-          'bilateral_filter': [False,
+          'bilateral_filter': [True,
                                {'d': 9,
                                 'sigma_color': 75,
                                 'sigma_space': 75
