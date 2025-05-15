@@ -13,12 +13,9 @@ folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
                     'Rolniczo-Przemysłowy')
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
-# todo : clahe,
-#       write bw images,
+# todo :
 #       create pdf [with reducing image size],
 #       heif convert
-#       apply using default values [right now, or in gui, taking them from
-#       method params?]
 
 
 class ImageProcessor:
@@ -31,7 +28,6 @@ class ImageProcessor:
         self.color_space = {'color': cv2.IMREAD_COLOR,
                             'grayscale': cv2.IMREAD_GRAYSCALE,
                             }
-
 
     def image_processing_pipeline(self, **config):
         """Runs processes enabled in constructor."""
@@ -65,63 +61,49 @@ class ImageProcessor:
                 image_object = self.reverse_color(image_object)
 
             if external_config['clahe'][0]:
-                params = external_config['clahe'][1]
+                params = self.checker(external_config['clahe'][1])
                 image_object = self.clahe(image_object,
                                           color_space=color_space,
-                                          clip_limit=params['clip_limit'],
-                                          tile_grid_size=params[
-                                              'tile_grid_size'])
+                                          ** params
+                                          )
 
             if external_config['contrast_brightness'][0]:
-                params = external_config['contrast_brightness'][1]
+                params = self.checker(external_config[
+                                          'contrast_brightness'][1])
                 image_object = self.contrast_brightness(image_object,
-                                                        alpha=params['alpha'],
-                                                        beta=params['beta']
+                                                        **params
                                                         )
 
             if external_config['sharpen_image'][0]:
-                params = external_config['sharpen_image'][1]
+                params = self.checker(external_config['sharpen_image'][1])
                 image_object = self.sharpen_image(image_object,
-                                                  kernel=params['kernel'],
-                                                  strength=params['strength']
+                                                  ** params
                                                   )
 
             if external_config['bilateral_filter'][0]:
-                params = external_config['bilateral_filter'][1]
+                params = self.checker(external_config['bilateral_filter'][1])
                 image_object = self.bilateral_filter(image_object,
-                                                     d=params['d'],
-                                                     sigma_color=params[
-                                                         'sigma_color'],
-                                                     sigma_space=params[
-                                                         'sigma_space']
+                                                     **params
                                                      )
 
             if external_config['denoise_image'][0]:
-                params = external_config['denoise_image'][1]
+                params = self.checker(external_config['denoise_image'][1])
                 image_object = self.denoise_image(image_object,
                                                   color_space=color_space,
-                                                  filter_strength=
-                                                  params['filter_strength']
+                                                  **params
                                                   )
 
             if external_config['black_and_white'][0]:
-                params = external_config['black_and_white'][1]
+                params = self.checker(external_config['black_and_white'][1])
                 image_object = self.black_and_white(image_object,
-                                                    method=params['method'],
-                                                    max_value=params[
-                                                        'max_value'],
-                                                    block_size=params[
-                                                        'block_size'],
-                                                    constant=params[
-                                                        'constant']
+                                                    **params
                                                     )
 
             if external_config['write_output_file'][0]:
-                params = external_config['write_output_file'][1]
+                params = self.checker(external_config['write_output_file'][1])
                 self.write_output_file(image_object,
                                        output_dir=self.output_dir,
-                                       file_extension=params['file_extension'],
-                                       quality=params['quality']
+                                       **params
                                        )
 
         # Reset file counter after all files in dir have been processed.
@@ -161,7 +143,7 @@ class ImageProcessor:
 
     @staticmethod
     def black_and_white(image_object: MatLike,
-                        method: int,
+                        method: str = 'mean',
                         max_value: int = 255,
                         block_size: int = 199,
                         constant: int = 40) -> MatLike:
@@ -169,8 +151,7 @@ class ImageProcessor:
          Create black and white images using adaptive thresholding.
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
-        :param method: Choose between thresholding methods. Mean: 0,
-         gaussian: 1.
+        :param method: Choose between thresholding methods: mean or gaussian.
         :param max_value: Max value assigned to pixel.
         :param block_size: Size of pixel neighborhood used to calculate
          threshold value.
@@ -180,8 +161,8 @@ class ImageProcessor:
          manipulations.
         """
         image = image_object
-        adaptive_method = [cv2.ADAPTIVE_THRESH_MEAN_C,
-                           cv2.ADAPTIVE_THRESH_GAUSSIAN_C]
+        adaptive_method = {'mean': cv2.ADAPTIVE_THRESH_MEAN_C,
+                           'gaussian': cv2.ADAPTIVE_THRESH_GAUSSIAN_C}
 
         image = cv2.adaptiveThreshold(
             src=image,
@@ -192,6 +173,23 @@ class ImageProcessor:
             C=constant)
 
         return image
+
+    @staticmethod
+    def checker(params: dict[str, str | int | float | None]) -> dict:
+        """
+        Check if config overwrites default parameters of given process,
+         ie. if passes not None value for any parameter.
+        :param params: Parameters from config dictionary.
+        :return: Dict of items in config which values are not None.
+        """
+        check_params = params
+        not_none_values = dict()
+
+        for param in check_params:
+            if check_params[param] is not None:
+                not_none_values[param.keys()] = param.values()
+
+        return not_none_values
 
     @staticmethod
     def clahe(image_object: MatLike,
@@ -238,8 +236,8 @@ class ImageProcessor:
 
     @staticmethod
     def contrast_brightness(image_object: MatLike,
-                            alpha: int|float,
-                            beta: int) -> MatLike:
+                            alpha: int|float = 1,
+                            beta: int = 0) -> MatLike:
         """
         Contrast and brightness adjustment. You may want to apply it when not
          using clahe.
@@ -262,7 +260,7 @@ class ImageProcessor:
     @ staticmethod
     def denoise_image(image_object: MatLike,
                       color_space: int,
-                      filter_strength: int) -> MatLike:
+                      filter_strength: int = 10) -> MatLike:
         """
         Apply denoising filter to an Open cv object. Apply to noised images
          or after using sharpening kernel.
@@ -272,7 +270,7 @@ class ImageProcessor:
          grayscale.
         :param filter_strength: Higher value means better noise removal at
          the cost of removing image details and distorting colors (in color
-         images).
+         images); default value: 10.
          Recommended values:
             colors - 10
             grayscale - 30
@@ -351,7 +349,7 @@ class ImageProcessor:
 
     @staticmethod
     def sharpen_image(image_object: MatLike,
-                      kernel: str,
+                      kernel: str = 'sharpen',
                       strength: int = 0
                       ) -> MatLike:
         """
@@ -400,14 +398,10 @@ class ImageProcessor:
         apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
         return apply_kernel
 
-    #@ staticmethod
-    #def apply_clahe(image: MatLike,
-    #                           ):
-
     def write_output_file(self,
                           image_object: MatLike,
                           output_dir: str,
-                          file_extension: str,
+                          file_extension: str = 'jpg',
                           quality: int|None = None
                           ) -> None:
         """
@@ -469,31 +463,31 @@ config = {'color_space': 'grayscale',
           'run_rotate_adjustment': [True, {'rotation_angle': 90}],
           'reverse_colors': [False],
           'write_output_file': [True,
-                                {'file_extension': 'jpg',
-                                 'quality': 60
+                                {'file_extension': None,
+                                 'quality': None
                                }],
-          'contrast_brightness': [False,
-                                  {'alpha': 1.5,
-                                  'beta': -50
+          'contrast_brightness': [True,
+                                  {'alpha': None,
+                                  'beta': None
                                    }],
-          'clahe': [False, {'clip_limit': 40,
-                            'tile_grid_size': (8, 8)
+          'clahe': [True, {'clip_limit': None,
+                            'tile_grid_size': None
                            }],
-          'sharpen_image': [True, {'kernel': 'unsharp_mask',
-                                   'strength': 0
+          'sharpen_image': [True, {'kernel': None,
+                                   'strength': None
                                            }],
-          'bilateral_filter': [False,
-                               {'d': 9,
-                                'sigma_color': 75,
-                                'sigma_space': 75
+          'bilateral_filter': [True,
+                               {'d': None,
+                                'sigma_color': None,
+                                'sigma_space': None
                                 }],
           'black_and_white': [True,
-                              {'method': 1,
-                               'max_value': 255,
-                               'block_size': 199,
-                               'constant': 40
+                              {'method': None,
+                               'max_value': None,
+                               'block_size': None,
+                               'constant': None
                                }],
-          'denoise_image': [True, {'filter_strength': 10}]
+          'denoise_image': [True, {'filter_strength': None}]
         }
 
 
