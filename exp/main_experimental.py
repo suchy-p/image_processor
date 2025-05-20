@@ -1,12 +1,16 @@
 import os
+from shutil import copyfile, rmtree, copyfileobj
+import stat
+import time
 from typing import IO, BinaryIO
 
 import cv2
 from cv2.typing import MatLike
-import mypy
+#import mypy
 import numpy as np
 from PIL import Image, UnidentifiedImageError
-from tomlkit.items import Array
+from pypdf import PdfWriter
+#from tomlkit.items import Array
 
 # args for class instance
 folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
@@ -15,7 +19,7 @@ output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo :
 #       create pdf [with reducing image size],
-#       heif convert
+#       refactor above
 
 
 class ImageProcessor:
@@ -64,7 +68,7 @@ class ImageProcessor:
                 params = self.checker(external_config['clahe'][1])
                 image_object = self.clahe(image_object,
                                           color_space=color_space,
-                                          ** params
+                                          **params
                                           )
 
             if external_config['contrast_brightness'][0]:
@@ -99,12 +103,16 @@ class ImageProcessor:
                                                     **params
                                                     )
 
-            if external_config['write_output_file'][0]:
-                params = self.checker(external_config['write_output_file'][1])
-                self.write_output_file(image_object,
+            if external_config['write_processed_image'][0]:
+                params = self.checker(external_config['write_processed_image'][1])
+                self.write_processed_image(image_object,
                                        output_dir=self.output_dir,
                                        **params
                                        )
+
+        if external_config['write_pdf_file'][0]:
+            params = self.checker(external_config['write_pdf_file'][1])
+            self.write_pdf_file(**params)
 
         # Reset file counter after all files in dir have been processed.
         self.file_counter = 1
@@ -187,7 +195,7 @@ class ImageProcessor:
 
         for param in check_params:
             if check_params[param] is not None:
-                not_none_values[param.keys()] = param.values()
+                not_none_values[param] = check_params[param]
 
         return not_none_values
 
@@ -357,7 +365,8 @@ class ImageProcessor:
         It is possible to add more kernels in future if needed.
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
-        :param kernel: Kernel chosen from 'kernels' dict.
+        :param kernel: Kernel chosen from 'kernels' dict. Default value:
+         sharpen.
         :param strength: Multiplier for a kernel ranging from 1.00 (default)
          to 1.99.
         :return: Numpy array overwriting original image_object for further
@@ -398,7 +407,87 @@ class ImageProcessor:
         apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
         return apply_kernel
 
-    def write_output_file(self,
+    @ staticmethod
+    def write_pdf_file(images_path: str,
+                       images_file_type: str,
+                       pdf_file_name: str,
+                       pdf_file_compression: int = 0
+                       ) -> None:
+        """
+        Creates pdf file from processed images.
+        :param images_path: Path to directory containing image files.
+        :param images_file_type: Specify image file type, so this func
+         doesn't try to create pdf from non-image files that could be in
+          images directory (e.g. previously created pdf file).
+        :param pdf_file_name: Name of pdf file containing all images from
+         specified directory.
+        :param pdf_file_compression: Compression factor for pdf file:
+         from 0 (no compression) to 9 (highest compression). Default value = 0.
+        :return: None, writes pdf file in directory containing images.
+        """
+        output_file_name = f'{pdf_file_name}.pdf'
+        pdf_compression = pdf_file_compression
+        # Path for temp single-image pdfs, deleted after merging into one file.
+        temp_dir_path = '_temp'
+        counter = 1
+
+        # Create list of images for pdf convertion.
+        images = [os.path.abspath(image) for image in os.listdir(
+            images_path) if image.endswith(f'.{images_file_type}')]
+
+        # Create temp single-page pdfs.
+        print('Creating temp pdf files. They will be automatically deleted '
+              'after everything is done.')
+        for image in images:
+            current_image = Image.open(image)
+            name = f'_tempfile_{str(counter).zfill(3)}.pdf'
+            current_image.save(name, 'PDF')
+            counter += 1
+
+        # Create list of single-image pdfs for merging.
+        single_image_pdfs = [os.path.abspath(pdf) for pdf in
+                             os.listdir(images_path)
+                             if pdf.startswith('_tempfile_')]
+
+        merger = PdfWriter()
+
+        print('Merging temp pdf files.')
+        # Merge single-image pdfs into temp pdf file.
+        for pdf in single_image_pdfs:
+            merger.append(pdf, 'rb')
+
+        with open ('_tempfile_merged.pdf', 'wb') as file:
+            merger.write(file)
+
+        # Compress temp pdf file if pdf_file_compression > 0 and create
+        # output file. For me it doesn't seem to work at all, leaving it
+        # here just in case.
+        if pdf_compression > 0:
+            pdf_to_compress = PdfWriter('_tempfile_merged.pdf')
+            print('Compressing pdf file.')
+            for page in pdf_to_compress.pages:
+                page.compress_content_streams(level=pdf_compression)
+
+            with open (output_file_name, 'wb') as file:
+                pdf_to_compress.write(file)
+
+        else:
+            # If compression value == 0, copy temp pdf file as output file.
+            source_file = os.path.join(output_path, '_tempfile_merged.pdf')
+            destination_path = os.path.join(output_path, output_file_name)
+
+            if os.path.isfile(destination_path):
+                os.remove(destination_path)
+            os.rename(source_file, destination_path)
+
+        # Delete temp files.
+        for file in os.listdir(output_path):
+            if file.startswith('_tempfile'):
+                os.remove(file)
+
+        print('Finished.')
+
+    def write_processed_image(self,
                           image_object: MatLike,
                           output_dir: str,
                           file_extension: str = 'jpg',
@@ -414,7 +503,7 @@ class ImageProcessor:
         :param quality: Quality of jpg file in range from 0 to 100 or
          compression of png file in range form 0 to 9;
          if None Open cv applies default values: 95 for jpg, 3 for png.
-        :return: Image file of chosen file type.
+        :return: None, writes image file of chosen file type.
         """
         image_to_write: MatLike = image_object
         file_name = f'Image_{str(self.file_counter).zfill(4)}.{file_extension}'
@@ -458,243 +547,46 @@ class ImageProcessor:
             print(f'Probably invalid file extension. Choose jpg or png. \n '
                   f'Error message:\n {e}')
 
+image_processor = ImageProcessor(input_dir=folder_path,
+                                 output_dir=output_path)
 
 config = {'color_space': 'grayscale',
           'run_rotate_adjustment': [True, {'rotation_angle': 90}],
           'reverse_colors': [False],
-          'write_output_file': [True,
-                                {'file_extension': None,
-                                 'quality': None
+          'write_processed_image': [True,
+                                {'file_extension': 'png',
+                                 'quality': 9
                                }],
-          'contrast_brightness': [True,
+          'write_pdf_file': [True,
+                             {'images_path': image_processor.output_dir,
+                              'images_file_type': 'png',
+                             'pdf_file_name': 'Tygodnik '
+                                              'Rolniczo-Przemysłowy',
+                             'pdf_file_compression': None
+                              }],
+          'contrast_brightness': [False,
                                   {'alpha': None,
                                   'beta': None
                                    }],
-          'clahe': [True, {'clip_limit': None,
+          'clahe': [False, {'clip_limit': None,
                             'tile_grid_size': None
                            }],
-          'sharpen_image': [True, {'kernel': None,
+          'sharpen_image': [False, {'kernel': 'unsharp_mask',
                                    'strength': None
                                            }],
-          'bilateral_filter': [True,
+          'bilateral_filter': [False,
                                {'d': None,
                                 'sigma_color': None,
                                 'sigma_space': None
                                 }],
           'black_and_white': [True,
-                              {'method': None,
+                              {'method': 'gaussian',
                                'max_value': None,
                                'block_size': None,
                                'constant': None
                                }],
-          'denoise_image': [True, {'filter_strength': None}]
+          'denoise_image': [False, {'filter_strength': 10}]
         }
 
-
-image_processor = ImageProcessor(input_dir=folder_path,
-                                 output_dir=output_path)
-
 image_processor.image_processing_pipeline(**config)
-
-
-
-
-'''
-
-# todo: add all subfunc args to grayscale_opencv, refactor for selective
-#  subfunc usage passing and deafult subfunc params
-# todo: sharpen image for reverse colors
-# todo: add unsharp mask?
-def grayscale_opencv(input_folder_path: str,
-                     file_extension: str,
-                     rotate_angle: int = None,
-                     jpeg_quality: int = 85,
-                     png_compression: int = 5,
-                     ) -> None:
-    """
-    Create grayscale or binary image files for improved readability using
-    Open CV 2.
-    Useful for darkened documents photos or microforms photos with
-    non-linear lights.
-    :param input_folder_path: path to images for processing
-    :param file_extension:  extension of output files, jpeg suggested for
-    grayscale, png for binary images
-    :param rotate_angle: angle of clockwise image rotation during processing
-    in degrees: 90, 180, 270
-    :param jpeg_quality: quality of output jpeg file from 1 to 100; default
-    value: 85
-    :param png_compression: png file compression, from 1 to 10; default
-    value: 5
-    :return: None | writes processed files in folder created in working
-    directory
-    """
-
-    file_counter: int = 1
-    # file_extension: str = 'jpg'
-    rotate: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
-                              180: cv2.ROTATE_180,
-                              270: cv2.ROTATE_90_COUNTERCLOCKWISE,
-                              }
-
-    # params for output file compression
-    jpg_encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), jpeg_quality]
-    png_encode_param = [int(cv2.IMWRITE_PNG_COMPRESSION), png_compression]
-
-    for item in os.listdir(folder_path):
-        os.chdir(folder_path)
-
-        if item.endswith(('.jpg', '.png')):
-
-            image: numpy.ndarray = cv2.imread(item, cv2.IMREAD_GRAYSCALE)
-
-            # rotate right, left, flip vertical if rotate_angle argument is
-            # provided
-            if rotate_angle is not None:
-                # rotate image as specified in rotate variable
-                try:
-                    image: numpy.ndarray = cv2.rotate(image,
-                                                      rotate[rotate_angle],
-                                                      )
-                except KeyError:
-                    print('Wprowadź wartość liczbę całkowitą oznaczającą '
-                          'stopnie: 90, 180 lub 270')
-                    break
-
-            # contrast limited adaptive histogram equalization
-            clip_limit: int = 5
-            tile_grid_size: tuple[int, int] = (8, 8)
-            clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
-
-            # contrast (alpha) and brightness (beta) adjustments, optional
-            # alpha: int|float = 1.5
-            # beta: int = -120
-            # image: numpy.ndarray = cv2.convertScaleAbs(image, alpha, beta)
-
-            # sharpening
-            # sharpening kernel
-            kernel = np.array([[0, -1, 0],
-                               [-1, 5, -1],
-                               [0, -1, 0]])
-
-            # applying sharpening kernel as filter
-            sharpened = cv2.filter2D(image, -1, kernel)
-            grayscale_image = sharpened
-
-            # bilateral filter applied as better for preserving edges
-            # d: diameter of pixel neighborhood; if d == 0
-            # diameter is calculated based only on sigmaSpace
-            d: int = 9
-            # 2nd value - sigmaColor: color differences, higher value =
-            # higher tonal spread
-            sigma_color: int = 5
-            # 3rd value - sigmaSpace: neighboring pixels
-            sigma_space: int = 5
-            image = cv2.bilateralFilter(image, d, sigma_color, sigma_space)
-
-            grayscale_image: numpy.ndarray = clahe.apply(image)
-
-            # grayscale image denoising
-            # source file
-            source_file = grayscale_image
-            # size in pixels of the template patch used to compute weights;
-            # should be odd number; recommended value == 7
-            template_window_size = 7
-            # size in pixels of the window that is used to compute weighted
-            # average for given pixel; should be odd number; affects
-            # performance; recommended value == 21
-            search_window_size = 21
-            # uzupełnić
-            h = 10
-            
-            grayscale_image: numpy.ndarray = cv2.fastNlMeansDenoising(
-                                    src=source_file,
-                                    templateWindowSize=template_window_size,
-                                    searchWindowSize=search_window_size,
-                                    h=h
-                                    )
-            
-            # Reverse color, for negative images
-            grayscale_image: numpy.ndarray = cv2.bitwise_not(grayscale_image)
-
-            # Create black and white image using adaptive threshold.
-            # max value assigned to pixel
-            max_value: int = 255
-            # adaptive thresholding method, index 0 == mean or 1 == gaussian
-            adaptive_method = [cv2.ADAPTIVE_THRESH_MEAN_C,
-                               cv2.ADAPTIVE_THRESH_GAUSSIAN_C]
-            # size of pixel neighborhood used to calculate threshold value
-            block_size: int = 199
-            # value subtracted from the mean or weighted (gaussian
-            # thresholding) sum of neighbouring pixels
-            constant: int = 10
-            bw_image: numpy.ndarray = cv2.adaptiveThreshold(
-                                        src=grayscale_image,
-                                        maxValue=max_value,
-                                        adaptiveMethod=adaptive_method[1],
-                                        thresholdType=cv2.THRESH_BINARY,
-                                        blockSize=block_size,
-                                        C=constant)
-
-
-            # check existing output path
-            if not os.path.isdir(output_path):
-                os.mkdir(output_path)
-
-            os.chdir(output_path)
-
-            try:
-                # write png files with compression
-                # better for bw images
-                cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.'
-                            f'{file_extension}',
-                            bw_image, png_encode_param
-                            )
-
-                # write jpg files with compression
-                # better for grayscale images
-                # cv2.imwrite(f'Image_{str(file_counter).zfill(3)}.{
-                # file_extension}',
-                #            grayscale_image,
-                #            jpg_encode_param
-                #            )
-            except cv2.error as e:
-                print(f'Prawdopodobnie niewłaściwy format pliku. '
-                      f'Wybierz jpeg lub png. \n Treść błędu:\n {e}')
-                break
-
-            print(f'Saved: Image_{str(file_counter).zfill(3)}.'
-                  f'{file_extension}.')
-            file_counter += 1
-
-
-def create_pdf(im_files_path: str, im_files_ext: str, save_file_name: str):
-    """
-    Creates pdf file from image files in selected directory using PIL.
-    :param im_files_path: path to folder containing image files
-    :param im_files_ext: extension of image files, preferably png or jpeg
-    :param save_file_name: name of created pdf file
-    :return: None, creates pdf file in im_files_path dir
-    """
-
-    pdf_file_name = f'{save_file_name}.pdf'
-    os.chdir(im_files_path)
-
-    try:
-        # converting all images in directory to binary images
-        images = [Image.open(i).convert('1') for i in os.listdir(
-            im_files_path) if i.endswith(im_files_ext)]
-        # create pdf form first image in dir, then appending rest of files
-        images[0].save(
-            pdf_file_name,
-            save_all=True,
-            append_images=images[1:]
-        )
-    except UnidentifiedImageError as e:
-        print(f'Prawdopodobnie w folderze znajdują się pliki, które nie są '
-              f'plikami graficznymi. Obsługiwane formaty to jpg i png. '
-              f'\nKomunikat błędu: \n{e}')
-
-
-if __name__ == '__main__':
-'''
 
