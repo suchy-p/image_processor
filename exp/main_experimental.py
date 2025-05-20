@@ -1,16 +1,11 @@
 import os
-from shutil import copyfile, rmtree, copyfileobj
-import stat
-import time
-from typing import IO, BinaryIO
 
 import cv2
 from cv2.typing import MatLike
-#import mypy
 import numpy as np
-from PIL import Image, UnidentifiedImageError
+from PIL import Image
 from pypdf import PdfWriter
-#from tomlkit.items import Array
+
 
 # args for class instance
 folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
@@ -33,8 +28,13 @@ class ImageProcessor:
                             'grayscale': cv2.IMREAD_GRAYSCALE,
                             }
 
-    def image_processing_pipeline(self, **config):
-        """Runs processes enabled in constructor."""
+    def image_processing_pipeline(self, **config: dict)->None :
+        """
+        Runs processes enabled in configuration dict, passes params to
+         selected processes.
+        :param config: Dict containing configuration options.
+        :return: None, applies selected processes to image files.
+        """
 
         external_config = config
         color_space = self.color_space[external_config['color_space']]
@@ -548,11 +548,10 @@ class ImageProcessor:
                   f'Error message:\n {e}')
 
 image_processor = ImageProcessor(input_dir=folder_path,
-                                 output_dir=output_path)
+                                 output_dir=output_path
+                                 )
 
 config = {'color_space': 'grayscale',
-          'run_rotate_adjustment': [True, {'rotation_angle': 90}],
-          'reverse_colors': [False],
           'write_processed_image': [True,
                                 {'file_extension': 'png',
                                  'quality': 9
@@ -564,16 +563,6 @@ config = {'color_space': 'grayscale',
                                               'Rolniczo-Przemysłowy',
                              'pdf_file_compression': None
                               }],
-          'contrast_brightness': [False,
-                                  {'alpha': None,
-                                  'beta': None
-                                   }],
-          'clahe': [False, {'clip_limit': None,
-                            'tile_grid_size': None
-                           }],
-          'sharpen_image': [False, {'kernel': 'unsharp_mask',
-                                   'strength': None
-                                           }],
           'bilateral_filter': [False,
                                {'d': None,
                                 'sigma_color': None,
@@ -585,8 +574,20 @@ config = {'color_space': 'grayscale',
                                'block_size': None,
                                'constant': None
                                }],
-          'denoise_image': [False, {'filter_strength': 10}]
-        }
+          'clahe': [False, {'clip_limit': None,
+                            'tile_grid_size': None
+                           }],
+          'contrast_brightness': [False,
+                                  {'alpha': None,
+                                  'beta': None
+                                   }],
+          'denoise_image': [False, {'filter_strength': 10}],
+          'reverse_colors': [False],
+          'run_rotate_adjustment': [True, {'rotation_angle': 90}],
+          'sharpen_image': [False, {'kernel': 'unsharp_mask',
+                                   'strength': None
+                                           }],
+          }
 
 image_processor.image_processing_pipeline(**config)
 
