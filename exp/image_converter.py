@@ -20,20 +20,26 @@ class ImageConverter:
         self.file_list = os.listdir(self.input_path)
 
     def validate_inputs(self):
-        extensions = ('jpg', 'jpeg', 'png')
+        """
+        Validate files selected for conversion, chosen output file format
+         and quality / compression value.
+        :return: If passed: None, changes self.write_quality_param; if
+         failed: exceptions list.
+        """
+        extensions = ('jpg', 'jpeg', 'png', 'tiff', 'heic')
         exceptions = []
         write_quality_param = self.write_quality_param
 
         # Validate list of files for conversion: check file type.
         for file in self.file_list:
-            if os.path.splitext(file) not in extensions:
+            if os.path.splitext(file)[1].lower() not in extensions:
                 self.file_list.remove(file)
         assert len(self.file_list) > 0, exceptions.append(
             'There are no files of supported types in source directory.'
         )
             
-        # Validate chosen output file extension.
-        if self.output_file_suffix not in extensions:
+        # Validate chosen output file extension; tiff and heic excluded.
+        if self.output_file_suffix not in extensions[-3::]:
             exceptions.append('Wrong extension. Choose jpg, jpeg or png.\n')
         
         # Validate chosen file quality value if not default.
@@ -63,87 +69,99 @@ class ImageConverter:
 
     @staticmethod
     def rename(input_path:str,
-            output_file_name:str):
+            output_file_name:str,
+            file_list: list[str],
+            counter = 0):
+        """
+        Rename chosen files.
+        :param input_path: Path to selected files.
+        :param output_file_name: Desired file name.
+        :param file_list: Passed by instance, list of validated files.
+        :param counter: Staring file number, default: 0.
+        :return: Nothing, staticmethod.
+        """
 
-        file_list = os.listdir(input_path)
-        file_suffix = os.path.splitext(file_list[0])[1]
+        passed_file_list = file_list
+        file_suffix = os.path.splitext(passed_file_list[0])[1]
 
         new_file_name = f'{output_file_name}_'
-        counter = 0
+        use_counter = counter
 
         os.chdir(input_path)
-        for file in file_list:
-            os.rename(file, f'{new_file_name.zfill(4), counter}.{file_suffix}')
-            counter += 1
+        for file in passed_file_list:
+            os.rename(file, f'{new_file_name.zfill(4), use_counter}'
+                            f'.{file_suffix}')
+            use_counter += 1
 
-    @staticmethod
-    def change_format():
-
-
-
+#    @staticmethod
+#    def change_format():
 
 
-def convert_heic(heic_path, output_file_suffix, quality):
-    output_path = os.path.join(heic_path, 'jpeg')
-    counter = 1
-    write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
-                                    quality
-                           ]
 
-    # Change jpeg quality to png compression if output_file_suffix == png.
-    if output_file_suffix == 'png':
-        write_quality_param: list[int | None] = [
-            int(cv2.IMWRITE_PNG_COMPRESSION),
-            quality
-        ]
-        # Check if provided png compression factor is correct when not
-        # using default value.
-        if quality is not None:
-            assert quality in range(0, 10), 'Compression value should ' \
-                                            'be integer between 0 and 9.'
+'''
+    def convert_heic(heic_path, output_file_suffix, quality):
+        output_path = os.path.join(heic_path, 'jpeg')
+        counter = 1
+        write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
+                                        quality
+                               ]
 
-            # Check if provided jpg quality value is correct when not using
-            # default value.
-    if output_file_suffix == 'jpg' and quality is not None:
-        assert quality in range(0, 101), 'Quality value should be ' \
-                                         'integer between 0 and 100.'
+        # Change jpeg quality to png compression if output_file_suffix == png.
+        if output_file_suffix == 'png':
+            write_quality_param: list[int | None] = [
+                int(cv2.IMWRITE_PNG_COMPRESSION),
+                quality
+            ]
+            # Check if provided png compression factor is correct when not
+            # using default value.
+            if quality is not None:
+                assert quality in range(0, 10), 'Compression value should ' \
+                                                'be integer between 0 and 9.'
 
-    file_list = os.listdir(heic_path)
-    for f in file_list:
-        if f.endswith('.HEIC'):
+                # Check if provided jpg quality value is correct when not using
+                # default value.
+        if output_file_suffix == 'jpg' and quality is not None:
+            assert quality in range(0, 101), 'Quality value should be ' \
+                                             'integer between 0 and 100.'
 
-            for i in os.listdir(heic_path):
-                os.chdir(heic_path)
-                heif_file = pillow_heif.open_heif(i,
-                                                  convert_hdr_to_8bit = False,
-                                                  bgr_mode=True,
-                                                  )
-                np_array = np.asarray(heif_file)
+        file_list = os.listdir(heic_path)
+        for f in file_list:
+            if f.endswith('.HEIC'):
 
-                # contrast limited adaptive histogram equalization; outside loop
-                clip_limit: int = 5
-                tile_grid_size: tuple[int, int] = (8, 8)
-                clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
+                for i in os.listdir(heic_path):
+                    os.chdir(heic_path)
+                    heif_file = pillow_heif.open_heif(i,
+                                                      convert_hdr_to_8bit = False,
+                                                      bgr_mode=True,
+                                                      )
+                    np_array = np.asarray(heif_file)
 
-                lab = cv2.cvtColor(np_array, cv2.COLOR_BGR2LAB)
-                # splitting lab to lightness [0], green-red [1] and blue-yellow
-                # [2] planes
-                lab_planes = list(cv2.split(lab))
-                # apply clahe to lightness
-                lab_planes[0] = clahe.apply(lab_planes[0])
-                # merging planes
-                lab = cv2.merge(lab_planes)
-                np_array = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                    # contrast limited adaptive histogram equalization; outside loop
+                    clip_limit: int = 5
+                    tile_grid_size: tuple[int, int] = (8, 8)
+                    clahe: cv2.CLAHE = cv2.createCLAHE(clip_limit, tile_grid_size)
 
-                # resize 2/3 of original image
-                np_array = cv2.resize(np_array, (0,0), fx=0.66, fy=0.66)
+                    lab = cv2.cvtColor(np_array, cv2.COLOR_BGR2LAB)
+                    # splitting lab to lightness [0], green-red [1] and blue-yellow
+                    # [2] planes
+                    lab_planes = list(cv2.split(lab))
+                    # apply clahe to lightness
+                    lab_planes[0] = clahe.apply(lab_planes[0])
+                    # merging planes
+                    lab = cv2.merge(lab_planes)
+                    np_array = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
-                # check existing output path
-                if not os.path.isdir(save_file_path):
-                    os.mkdir(save_file_path)
+                    # resize 2/3 of original image
+                    np_array = cv2.resize(np_array, (0,0), fx=0.66, fy=0.66)
 
-                os.chdir(save_file_path)
+                    # check existing output path
+                    if not os.path.isdir(save_file_path):
+                        os.mkdir(save_file_path)
 
-                cv2.imwrite(f'Image_{str(counter).zfill(3)}.jpg', np_array, jpg_encode_param)
-                print(f'Image_{str(counter).zfill(3)}.jpg')
-                counter += 1
+                    os.chdir(save_file_path)
+
+                    cv2.imwrite(f'Image_{str(counter).zfill(3)}.jpg', np_array, jpg_encode_param)
+                    print(f'Image_{str(counter).zfill(3)}.jpg')
+                    counter += 1
+'''
+
