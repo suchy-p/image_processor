@@ -6,46 +6,60 @@ import pillow_heif
 
 class ImageConverter:
     def __init__(self, input_path: str,
-                 output_file_extension: str,
+                 output_file_suffix: str,
                  output_file_name: str|None = None,
                  quality: int|None = None,
                  ):
         
         self.input_path = input_path
-        self.output_file_extension = output_file_extension
+        self.output_file_suffix = output_file_suffix
         self.output_file_name = output_file_name
         self.quality = quality
         self.write_quality_param: list [int|None] = [None, None]
 
+        self.file_list = os.listdir(self.input_path)
+
     def validate_inputs(self):
         extensions = ('jpg', 'jpeg', 'png')
-        errors = []
+        exceptions = []
         write_quality_param = self.write_quality_param
 
-        # Validate file extension.
-        if self.output_file_extension not in extensions:
-            errors.append('Wrong extension. Choose jpg, jpeg or png.\n')
-
+        # Validate list of files for conversion: check file type.
+        for file in self.file_list:
+            if os.path.splitext(file) not in extensions:
+                self.file_list.remove(file)
+        assert len(self.file_list) > 0, exceptions.append(
+            'There are no files of supported types in source directory.'
+        )
+            
+        # Validate chosen output file extension.
+        if self.output_file_suffix not in extensions:
+            exceptions.append('Wrong extension. Choose jpg, jpeg or png.\n')
+        
+        # Validate chosen file quality value if not default.
         if self.quality is not None:
-            if self.output_file_extension is 'jpeg' or 'jpg':
-                assert self.quality in range(0, 101), errors.append(
+            if self.output_file_suffix is 'jpeg' or 'jpg':
+                assert self.quality in range(0, 101), exceptions.append(
                     'Quality value should be an integer between 0 and 100.\n'
                 )
                 write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
                                        self.quality
                                        ]
-            elif self.output_file_extension is 'png':
-                assert self.quality in range(0, 10), errors.append(
+            elif self.output_file_suffix is 'png':
+                assert self.quality in range(0, 10), exceptions.append(
                     'Compression value should be an integer between 0 and 9.\n'
                 )
                 write_quality_param = [int(cv2.IMWRITE_PNG_COMPRESSION),
                                        self.quality
                                        ]
-
-        if len(errors) > 0:
-            return errors
+        
+        # Return exceptions if any has occurred, else change
+        # self.write_quality_params for chosen quality / compression value.
+        if len(exceptions) > 0:
+            return exceptions
         else:
             self.write_quality_param = write_quality_param
+            return None
 
     @staticmethod
     def rename(input_path:str,
@@ -69,15 +83,15 @@ class ImageConverter:
 
 
 
-def convert_heic(heic_path, output_file_extension, quality):
+def convert_heic(heic_path, output_file_suffix, quality):
     output_path = os.path.join(heic_path, 'jpeg')
     counter = 1
     write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
                                     quality
                            ]
 
-    # Change jpeg quality to png compression if output_file_extension == png.
-    if output_file_extension == 'png':
+    # Change jpeg quality to png compression if output_file_suffix == png.
+    if output_file_suffix == 'png':
         write_quality_param: list[int | None] = [
             int(cv2.IMWRITE_PNG_COMPRESSION),
             quality
@@ -90,7 +104,7 @@ def convert_heic(heic_path, output_file_extension, quality):
 
             # Check if provided jpg quality value is correct when not using
             # default value.
-    if output_file_extension == 'jpg' and quality is not None:
+    if output_file_suffix == 'jpg' and quality is not None:
         assert quality in range(0, 101), 'Quality value should be ' \
                                          'integer between 0 and 100.'
 
