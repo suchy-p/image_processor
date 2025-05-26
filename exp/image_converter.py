@@ -1,6 +1,8 @@
 import os
+from contextlib import chdir
 
 import cv2
+import numpy as np
 import pillow_heif
 
 
@@ -18,6 +20,8 @@ class ImageConverter:
         self.write_quality_param: list [int|None] = [None, None]
 
         self.file_list = os.listdir(self.input_path)
+        self.output_file_path = os.path.join(self.input_path,
+                                             'converted_files')
 
     def validate_inputs(self):
         """
@@ -76,7 +80,7 @@ class ImageConverter:
         Rename chosen files.
         :param input_path: Path to selected files.
         :param output_file_name: Desired file name.
-        :param file_list: Passed by instance, list of validated files.
+        :param file_list: List of validated files, passed by instance.
         :param counter: Staring file number, default: 0.
         :return: Nothing, staticmethod.
         """
@@ -93,8 +97,52 @@ class ImageConverter:
                             f'.{file_suffix}')
             use_counter += 1
 
-#    @staticmethod
-#    def change_format():
+    @staticmethod
+    def change_format(file_list:list[str],
+                      output_file_suffix:str,
+                      output_file_path:str,
+                      write_quality_param:list[int|None],
+                      counter = 0,
+                      output_file_name:str = 'Image_',
+                      ):
+        """
+         Change format of image files in selected directory.
+        :param file_list: List of validated files, passed by instance.
+        :param output_file_suffix: Desired file format, passed by instance.
+        :param output_file_path: Folder created in images directory
+         containing new files, passed by instance.
+        :param write_quality_param: Quality / compression param, passed by
+         instance.
+        :param counter: Starting file number, default: 0.
+        :param output_file_name: Name of new files, default: Image_.
+        :return: Nothing, staticmethod.
+        """
+        passed_file_list = file_list
+        suffix = output_file_suffix
+        passed_output_dir = output_file_path
+        quality = write_quality_param
+        chosen_counter = counter
+
+        if not os.path.isdir(passed_output_dir):
+            os.mkdir(passed_output_dir)
+        chdir(passed_output_dir)
+
+        for file in passed_file_list:
+            name = (f'{output_file_name}{str(chosen_counter).zfill(4)}.'
+                    f'{suffix}')
+            # Check for heic format.
+            if os.path.splitext(file)[1].lower() == 'heic':
+                image = pillow_heif.open_heif(file,
+                                              convert_hdr_to_8bit = False,
+                                              bgr_mode=True,
+                                              )
+                image = np.asarray(image)
+
+            else:
+                image = cv2.imread(file)
+
+            cv2.imwrite(name, image, quality)
+            chosen_counter += 1
 
 
 
