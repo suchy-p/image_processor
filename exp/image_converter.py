@@ -12,15 +12,16 @@ from image_processor import ImageProcessor
 
 class ImageConverter:
     def __init__(self, input_path: str,
-                 output_file_suffix: str,
-                 output_file_name: str|None = None,
-                 quality: int|None = None,
+                 #quality: int | None = None,
+                 **config: dict[str:bool:[list[str|int|None]]],
+                 #output_file_name: str|None = None,
+
                  ):
         
         self.input_path = input_path
-        self.output_file_suffix = output_file_suffix
-        self.output_file_name = output_file_name
-        self.quality = quality
+        self.output_file_suffix = 'jpg'
+        #self.output_file_name = output_file_name
+        #self.quality = quality
         self.write_quality_param: list [int|None] = [None, None]
 
         self.file_list = os.listdir(self.input_path)
@@ -32,32 +33,41 @@ class ImageConverter:
         config = config_params
         checker = ImageProcessor.checker
 
-        validate: list|None = self.validate_inputs()
-
+        validate: list|None = self.validate_inputs(config)
+        print(self.output_file_path)
+        print(self.write_quality_param)
         if validate is not None:
-            return validate
+            print(validate)
+            return None
 
-        if config['change_format'][0]:
-            params = checker(config['change_format'][1])
-            self.change_format(**params)
+        else:
+            if not os.path.isdir(self.output_file_path):
+                os.mkdir(self.output_file_path)
+            chdir(self.input_path)
+            print(self.file_list)
+            if config['change_format'][0]:
+                params = checker(config['change_format'][1])
+                self.change_format(**params)
 
-        if config['rename'][0]:
-            params = checker(config['rename'][1])
-            self.rename(**params)
+            if config['rename'][0]:
+                params = checker(config['rename'][1])
+                self.rename(**params)
 
-        if config['write_pdf_file'][0]:
-            params = checker(config['write_pdf_file'][1])
-            self.write_pdf_file(**params)
+            if config['write_pdf_file'][0]:
+                params = checker(config['write_pdf_file'][1])
+                self.write_pdf_file(**params)
 
         return None
 
-    @staticmethod
-    def change_format(file_list: list[str],
-                      output_file_suffix: str,
-                      output_file_path: str,
-                      write_quality_param: list[int | None],
-                      counter=0,
-                      output_file_name: str = 'Image_',
+    def change_format(self,
+                      #file_list: list[str] ,
+
+                      #output_file_path: str,
+                      #write_quality_param: list[int|None],
+                      counter: int=0,
+                      output_file_name: str='Image_',
+                      output_file_suffix: str=None,
+                      quality: int|None = None
                       ):
         """
          Change format of image files in selected directory.
@@ -71,38 +81,43 @@ class ImageConverter:
         :param output_file_name: Name of new files, default: Image_.
         :return: Nothing, staticmethod.
         """
-        passed_file_list = file_list
-        suffix = output_file_suffix
-        passed_output_dir = output_file_path
-        quality = write_quality_param
-        chosen_counter = counter
+        file_list = self.file_list
+        output_file_suffix = output_file_suffix
 
-        if not os.path.isdir(passed_output_dir):
-            os.mkdir(passed_output_dir)
-        chdir(passed_output_dir)
+        #write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
+        #                       85]#self.write_quality_param
+        use_counter = counter
 
-        for file in passed_file_list:
-            name = (f'{output_file_name}{str(chosen_counter).zfill(4)}.'
-                    f'{suffix}')
+        os.chdir(self.input_path)
+
+        for file in file_list:
+            name = (f'{output_file_name}{str(use_counter).zfill(4)}.'
+                    f'{output_file_suffix}')
+
+            print(os.path.splitext(file)[1].lower() == '.heic')
             # Check for heic format.
-            if os.path.splitext(file)[1].lower() == 'heic':
+            if os.path.splitext(file)[1].lower() == '.heic':
+                print('heic')
                 image = pillow_heif.open_heif(file,
                                               convert_hdr_to_8bit=False,
                                               bgr_mode=True,
                                               )
-                image = np.asarray(image)
+                # Convert to np array, so cv2 can read it.
+                image = np.array(image)
 
             else:
                 image = cv2.imread(file)
 
-            cv2.imwrite(name, image, quality)
-            chosen_counter += 1
 
-    @staticmethod
-    def rename(input_path:str,
+            cv2.imwrite(os.path.join(self.output_file_path, name), image,
+                                         self.write_quality_param)
+            use_counter += 1
+
+    def rename(self,
+            input_path:str,
             output_file_name:str,
             file_list: list[str],
-            counter = 0):
+            counter: int = 0):
         """
         Rename chosen files.
         :param input_path: Path to selected files.
@@ -111,20 +126,20 @@ class ImageConverter:
         :param counter: Staring file number, default: 0.
         :return: Nothing, staticmethod.
         """
-
-        passed_file_list = file_list
-        file_suffix = os.path.splitext(passed_file_list[0])[1]
+        self.input_path = input_path
+        self.file_list = file_list
+        file_suffix = os.path.splitext(self.file_list[0])[1]
 
         new_file_name = f'{output_file_name}_'
         use_counter = counter
 
-        os.chdir(input_path)
-        for file in passed_file_list:
-            os.rename(file, f'{new_file_name.zfill(4), use_counter}'
+        os.chdir(self.input_path)
+        for file in self.file_list:
+            os.rename(file, f'{new_file_name, str(use_counter).zfill(4)}'
                             f'.{file_suffix}')
             use_counter += 1
 
-    def validate_inputs(self):
+    def validate_inputs(self, config):
         """
         Validate files selected for conversion, chosen output file format
          and quality / compression value.
@@ -133,8 +148,12 @@ class ImageConverter:
         """
         extensions = ('jpg', 'jpeg', 'png', 'tiff', 'heic')
         exceptions = []
-        write_quality_param = self.write_quality_param
+        quality = config['change_format'][1]['quality']
+        #write_quality_param = self.write_quality_param
 
+        config = config
+        desired_format = (config['change_format'][1]['output_file_suffix'])
+        print('Validating')
         # Validate list of files for conversion: check file type.
         for file in self.file_list:
             if os.path.splitext(file)[1].lower() not in extensions:
@@ -142,34 +161,36 @@ class ImageConverter:
         assert len(self.file_list) > 0, exceptions.append(
             'There are no files of supported types in source directory.'
         )
-            
+
         # Validate chosen output file extension; tiff and heic excluded.
-        if self.output_file_suffix not in extensions[-3::]:
+        if desired_format not in extensions[:3:]:
             exceptions.append('Wrong extension. Choose jpg, jpeg or png.\n')
+
         
         # Validate chosen file quality value if not default.
-        if self.quality is not None:
-            if self.output_file_suffix is 'jpeg' or 'jpg':
-                assert self.quality in range(0, 101), exceptions.append(
+        if quality is not None:
+            if desired_format == 'jpeg' or desired_format == 'jpg':
+                assert quality in range(0, 101), exceptions.append(
                     'Quality value should be an integer between 0 and 100.\n'
                 )
-                write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
-                                       self.quality
+                self.write_quality_param = [int(cv2.IMWRITE_JPEG_QUALITY),
+                                       quality
                                        ]
-            elif self.output_file_suffix is 'png':
-                assert self.quality in range(0, 10), exceptions.append(
+            elif self.output_file_suffix == 'png':
+                assert quality in range(0, 10), exceptions.append(
                     'Compression value should be an integer between 0 and 9.\n'
                 )
-                write_quality_param = [int(cv2.IMWRITE_PNG_COMPRESSION),
-                                       self.quality
+                self.write_quality_param = [int(cv2.IMWRITE_PNG_COMPRESSION),
+                                       quality
                                        ]
         
         # Return exceptions if any has occurred, else change
         # self.write_quality_params for chosen quality / compression value.
         if len(exceptions) > 0:
             return exceptions
+
         else:
-            self.write_quality_param = write_quality_param
+            #self.write_quality_param = write_quality_param
             return None
 
     @staticmethod
@@ -192,15 +213,19 @@ class ImageConverter:
          from 0 (no compression) to 9 (highest compression). Default value = 0.
         :return: None, writes pdf file in directory containing images.
         """
+
         output_file_name = f'{pdf_file_name}.pdf'
         pdf_compression = pdf_file_compression
         # Path for temp single-image pdfs, deleted after merging into one file.
         counter = 1
 
+        os.chdir(os.path.join(images_path))
         # Create list of images for pdf convertion.
         images = [os.path.abspath(image) for image in os.listdir(
             images_path) if image.endswith(f'.{images_file_type}')]
 
+
+        print(os.getcwd())
         # Create temp single-page pdfs.
         print('Creating temp pdf files. They will be automatically deleted '
               'after everything is done.')
@@ -258,9 +283,29 @@ class ImageConverter:
 
 
 
-conf = {
+conf = {'change_format': [True,
+                          {'counter': None,
+                           'output_file_name': None,
+                           'output_file_suffix': 'jpg',
+                           'quality': 80
+                           }],
+        'rename': [False,
+                   {'counter': None,
+                    'output_file_name': 'File_',
+                    }],
+        'write_pdf_file': [True,
+                           {'images_path':
+                                'C:\\Users\\Patryk\\Desktop\\heic\\converted_files',
+                            'images_file_type': 'jpg',
+                            'pdf_file_name': 'Document'
+                            }]
 
 }
+
+path_to_files = 'C:\\Users\\Patryk\\Desktop\\heic'
+
+im_converter = ImageConverter(input_path=path_to_files)
+im_converter.image_converting_pipeline(**conf)
 
 '''
     def convert_heic(heic_path, output_file_suffix, quality):

@@ -589,5 +589,5 @@ config = {'color_space': 'grayscale',
                                            }],
           }
 
-image_processor.image_processing_pipeline(**config)
+#image_processor.image_processing_pipeline(**config)
 
