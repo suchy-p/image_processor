@@ -168,7 +168,14 @@ class ImageProcessor:
         :return: Numpy array overwriting original image_object for further
          manipulations.
         """
+
         image = image_object
+
+        # Check color space in config, change color space to grayscale if
+        # needed.
+        if config['color_space'] == 'color':
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
         adaptive_method = {'mean': cv2.ADAPTIVE_THRESH_MEAN_C,
                            'gaussian': cv2.ADAPTIVE_THRESH_GAUSSIAN_C}
 
@@ -563,12 +570,12 @@ config = {'color_space': 'color',
                                               'Rolniczo-Przemysłowy',
                              'pdf_file_compression': None
                               }],
-          'bilateral_filter': [False,
+          'bilateral_filter': [True,
                                {'d': None,
                                 'sigma_color': None,
                                 'sigma_space': None
                                 }],
-          'black_and_white': [False,
+          'black_and_white': [True,
                               {'method': 'gaussian',
                                'max_value': None,
                                'block_size': None,
@@ -584,7 +591,7 @@ config = {'color_space': 'color',
           'denoise_image': [True, {'filter_strength': 10}],
           'reverse_colors': [False],
           'run_rotate_adjustment': [False, {'rotation_angle': 90}],
-          'sharpen_image': [False, {'kernel': 'unsharp_mask',
+          'sharpen_image': [True, {'kernel': 'unsharp_mask',
                                    'strength': None
                                            }],
           }
