@@ -8,8 +8,7 @@ from pypdf import PdfWriter
 
 
 # args for class instance
-folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Tygodnik '
-                    'Rolniczo-Przemysłowy')
+folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Leon Beczek 1939–1943')
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo :
@@ -41,8 +40,9 @@ class ImageProcessor:
 
         # Create list of images for processing.
         os.chdir(self.input_dir)
-        to_process: list[str] = [item for item in os.listdir(self.input_dir)
-                                 if os.path.isfile(os.path.abspath(item))]
+        to_process: list[str] = [item for item in os.listdir(os.getcwd())
+                                 if os.path.isfile(item)]
+        print(to_process)
 
         # Apply selected processes to each image
         for item in to_process:
@@ -551,12 +551,12 @@ image_processor = ImageProcessor(input_dir=folder_path,
                                  output_dir=output_path
                                  )
 
-config = {'color_space': 'grayscale',
+config = {'color_space': 'color',
           'write_processed_image': [True,
                                 {'file_extension': 'png',
                                  'quality': 9
                                }],
-          'write_pdf_file': [True,
+          'write_pdf_file': [False,
                              {'images_path': image_processor.output_dir,
                               'images_file_type': 'png',
                              'pdf_file_name': 'Tygodnik '
@@ -568,26 +568,26 @@ config = {'color_space': 'grayscale',
                                 'sigma_color': None,
                                 'sigma_space': None
                                 }],
-          'black_and_white': [True,
+          'black_and_white': [False,
                               {'method': 'gaussian',
                                'max_value': None,
                                'block_size': None,
                                'constant': None
                                }],
-          'clahe': [False, {'clip_limit': None,
+          'clahe': [True, {'clip_limit': None,
                             'tile_grid_size': None
                            }],
           'contrast_brightness': [False,
                                   {'alpha': None,
                                   'beta': None
                                    }],
-          'denoise_image': [False, {'filter_strength': 10}],
+          'denoise_image': [True, {'filter_strength': 10}],
           'reverse_colors': [False],
-          'run_rotate_adjustment': [True, {'rotation_angle': 90}],
+          'run_rotate_adjustment': [False, {'rotation_angle': 90}],
           'sharpen_image': [False, {'kernel': 'unsharp_mask',
                                    'strength': None
                                            }],
           }
 
-#image_processor.image_processing_pipeline(**config)
+image_processor.image_processing_pipeline(**config)
 

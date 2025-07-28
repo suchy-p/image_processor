@@ -125,8 +125,9 @@ class ImageConverter:
         print(file_suffix)
 
         os.chdir(self.input_path)
-        files = [file for file in os.listdir(getcwd()) if
+        files = [file for file in os.listdir(os.getcwd()) if
                  os.path.isfile(file)]
+        print(files)
         for file in files:
             dest_path = os.path.join(os.getcwd(), 'converted_files')
             dest_filename = (f'{new_file_name}{str(use_counter).zfill(4)}'
@@ -276,7 +277,7 @@ conf = {'change_format': [False,
                            }],
         'rename': [False,
                    {'counter': None,
-                    'output_file_name': 'File_',
+                    'output_file_name': 'IMG',
                     }],
         'write_pdf_file': [False,
                            {'images_path':
