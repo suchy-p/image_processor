@@ -1,6 +1,7 @@
 import os
 from contextlib import chdir
 from os import getcwd
+from shutil import copyfile
 
 import cv2
 import numpy as np
@@ -21,6 +22,7 @@ class ImageConverter:
         self.file_list:list[str] = os.listdir(self.input_path)
         self.output_file_path:str = os.path.join(self.input_path,
                                              'converted_files')
+        print(self.input_path)
 
     def image_converting_pipeline(self, **config_params: dict[
                                                          str:str|int|None]):
@@ -120,11 +122,16 @@ class ImageConverter:
         file_suffix = os.path.splitext(self.file_list[0])[1]
         new_file_name = f'{output_file_name}_'
         use_counter = counter
+        print(file_suffix)
 
         os.chdir(self.input_path)
-        for file in self.file_list:
-            os.rename(file, f'{new_file_name, str(use_counter).zfill(4)}'
-                            f'.{file_suffix}')
+        files = [file for file in os.listdir(getcwd()) if
+                 os.path.isfile(file)]
+        for file in files:
+            dest_path = os.path.join(os.getcwd(), 'converted_files')
+            dest_filename = (f'{new_file_name}{str(use_counter).zfill(4)}'
+                            f'{file_suffix}')
+            copyfile(file, os.path.join(dest_path, dest_filename))
             use_counter += 1
 
     def validate_inputs(self, config):
@@ -261,7 +268,7 @@ class ImageConverter:
         print('Finished.')
 
 
-conf = {'change_format': [True,
+conf = {'change_format': [False,
                           {'counter': None,
                            'output_file_name': None,
                            'output_file_suffix': 'jpg',
@@ -271,15 +278,15 @@ conf = {'change_format': [True,
                    {'counter': None,
                     'output_file_name': 'File_',
                     }],
-        'write_pdf_file': [True,
+        'write_pdf_file': [False,
                            {'images_path':
-                                'C:\\Users\\Patryk\\Desktop\\heic\\converted_files',
+                                'C:\\Users\\Patryk\\Desktop\\Leon Beczek 1939–1943',
                             'pdf_file_name': 'Document'
                             }]
 
 }
 
-path_to_files = 'C:\\Users\\Patryk\\Desktop\\heic'
+path_to_files = 'C:\\Users\\Patryk\\Desktop\\Leon Beczek 1939–1943'
 
 im_converter = ImageConverter(input_path=path_to_files)
 im_converter.image_converting_pipeline(**conf)
