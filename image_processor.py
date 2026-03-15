@@ -8,7 +8,7 @@ from pypdf import PdfWriter
 
 
 # args for class instance
-folder_path: str = ('C:\\Users\\Patryk\\Desktop\\Leon Beczek 1939–1943')
+folder_path: str = ('C:\\Users\\Patryk\\Desktop\\stress')
 output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 # todo :
@@ -162,7 +162,7 @@ class ImageProcessor:
         :param method: Choose between thresholding methods: mean or gaussian.
         :param max_value: Max value assigned to pixel.
         :param block_size: Size of pixel neighborhood used to calculate
-         threshold value.
+         threshold value. Should be odd number.
         :param constant: Value subtracted from the mean or weighted (gaussian
           thresholding) sum of neighbouring pixels
         :return: Numpy array overwriting original image_object for further
@@ -558,43 +558,5 @@ image_processor = ImageProcessor(input_dir=folder_path,
                                  output_dir=output_path
                                  )
 
-config = {'color_space': 'color',
-          'write_processed_image': [True,
-                                {'file_extension': 'png',
-                                 'quality': 9
-                               }],
-          'write_pdf_file': [False,
-                             {'images_path': image_processor.output_dir,
-                              'images_file_type': 'png',
-                             'pdf_file_name': 'Tygodnik '
-                                              'Rolniczo-Przemysłowy',
-                             'pdf_file_compression': None
-                              }],
-          'bilateral_filter': [True,
-                               {'d': None,
-                                'sigma_color': None,
-                                'sigma_space': None
-                                }],
-          'black_and_white': [True,
-                              {'method': 'gaussian',
-                               'max_value': None,
-                               'block_size': None,
-                               'constant': None
-                               }],
-          'clahe': [True, {'clip_limit': None,
-                            'tile_grid_size': None
-                           }],
-          'contrast_brightness': [False,
-                                  {'alpha': None,
-                                  'beta': None
-                                   }],
-          'denoise_image': [True, {'filter_strength': 10}],
-          'reverse_colors': [False],
-          'run_rotate_adjustment': [False, {'rotation_angle': 90}],
-          'sharpen_image': [True, {'kernel': 'unsharp_mask',
-                                   'strength': None
-                                           }],
-          }
 
-image_processor.image_processing_pipeline(**config)
 

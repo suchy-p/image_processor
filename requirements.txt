@@ -1,0 +1,6 @@
+numpy < 2.3.0
+opencv-python
+pillow
+pypdf
+pytest
+
