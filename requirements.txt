@@ -3,4 +3,5 @@ opencv-python
 pillow
 pypdf
 pytest
+python == 3.12
 

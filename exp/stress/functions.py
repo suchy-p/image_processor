@@ -1,5 +1,4 @@
 import numpy as np
-import cv2
 
 
 def get_image_shape(image: np.ndarray):
@@ -13,8 +12,8 @@ def get_image_shape(image: np.ndarray):
     return tuple(list_for_new_array)
 
 
-def get_random_samples(image, sampling_range, sample_size):
-    height, width = np.shape(image)
+def get_random_samples(height, width, sampling_range, sample_size):
+    height, width = height, width
     sampling_range = sampling_range
     sample_size = sample_size
     samples = []
@@ -76,29 +75,17 @@ def get_envelopes(image, samples):
     return min_envelope, max_envelope
 
 
-def apply_stress(image, samples, h, w):
-    h = h
-    w = w
-    pixel = image[(h, w)]
+def apply_stress(pixel, samples):
+    pixel = pixel
     e_min, e_max = get_envelopes(pixel, samples)
-    samples = samples
     stress = []
 
     for channel in pixel:
-        # g = (channel-b) * (w-b) / |w-b|**2 <== to konwersja rgb 2 gr
-        # tu ma być local color correction:
         # p = p_0 - E_min / E_max - E_min
-
         numerator = channel - e_min
         denominator = e_max - e_min
-        # b, w = get_envelopes(image, samples)
-        # channel_minus_b = np.subtract(p, b)
-        # w_minus_b = np.subtract(w, b)
-        # numerator = np.dot(channel_minus_b, w_minus_b)
-        # denominator = np.absolute(np.dot(w_minus_b, w_minus_b))
 
         try:
-            channel_stress = numerator / denominator
             channel_stress = np.abs(np.divide(numerator, denominator))
             stress.append(int(channel_stress*255))
         except ValueError as e:
