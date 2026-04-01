@@ -6,6 +6,8 @@ import numpy as np
 from PIL import Image
 from pypdf import PdfWriter
 
+from exp.stress import pipeline as stress
+
 
 # args for class instance
 folder_path: str = ('C:\\Users\\Patryk\\Desktop\\stress')
@@ -77,6 +79,12 @@ class ImageProcessor:
                 image_object = self.contrast_brightness(image_object,
                                                         **params
                                                         )
+
+            if external_config['stress'][0]:
+                params = self.checker(external_config['stress'][1])
+                image_object = self.stress(image_object,
+                                           **params
+                                           )
 
             if external_config['sharpen_image'][0]:
                 params = self.checker(external_config['sharpen_image'][1])
