@@ -82,9 +82,11 @@ class ImageProcessor:
 
             if external_config['stress'][0]:
                 params = self.checker(external_config['stress'][1])
-                image_object = self.stress(image_object,
-                                           **params
-                                           )
+                for iteration in range(external_config['stress'][1]
+                                       ['iterations']):
+                    image_object = self.stress(image_object,
+                                               **params
+                                               )
 
             if external_config['sharpen_image'][0]:
                 params = self.checker(external_config['sharpen_image'][1])
