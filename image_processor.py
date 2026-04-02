@@ -67,21 +67,21 @@ class ImageProcessor:
                 image_object = self.reverse_color(image_object)
 
             if external_config['clahe'][0]:
-                params = self.checker(external_config['clahe'][1])
+                params = self.check_defaults_overwrite(external_config['clahe'][1])
                 image_object = self.clahe(image_object,
                                           color_space=color_space,
                                           **params
                                           )
 
             if external_config['contrast_brightness'][0]:
-                params = self.checker(external_config[
+                params = self.check_defaults_overwrite(external_config[
                                           'contrast_brightness'][1])
                 image_object = self.contrast_brightness(image_object,
                                                         **params
                                                         )
 
             if external_config['stress'][0]:
-                params = self.checker(external_config['stress'][1])
+                params = self.check_defaults_overwrite(external_config['stress'][1])
                 for iteration in range(external_config['stress'][1]
                                        ['iterations']):
                     image_object = self.stress(image_object,
@@ -89,39 +89,39 @@ class ImageProcessor:
                                                )
 
             if external_config['sharpen_image'][0]:
-                params = self.checker(external_config['sharpen_image'][1])
+                params = self.check_defaults_overwrite(external_config['sharpen_image'][1])
                 image_object = self.sharpen_image(image_object,
                                                   ** params
                                                   )
 
             if external_config['bilateral_filter'][0]:
-                params = self.checker(external_config['bilateral_filter'][1])
+                params = self.check_defaults_overwrite(external_config['bilateral_filter'][1])
                 image_object = self.bilateral_filter(image_object,
                                                      **params
                                                      )
 
             if external_config['denoise_image'][0]:
-                params = self.checker(external_config['denoise_image'][1])
+                params = self.check_defaults_overwrite(external_config['denoise_image'][1])
                 image_object = self.denoise_image(image_object,
                                                   color_space=color_space,
                                                   **params
                                                   )
 
             if external_config['black_and_white'][0]:
-                params = self.checker(external_config['black_and_white'][1])
+                params = self.check_defaults_overwrite(external_config['black_and_white'][1])
                 image_object = self.black_and_white(image_object,
                                                     **params
                                                     )
 
             if external_config['write_processed_image'][0]:
-                params = self.checker(external_config['write_processed_image'][1])
+                params = self.check_defaults_overwrite(external_config['write_processed_image'][1])
                 self.write_processed_image(image_object,
                                        output_dir=self.output_dir,
                                        **params
                                        )
 
         if external_config['write_pdf_file'][0]:
-            params = self.checker(external_config['write_pdf_file'][1])
+            params = self.check_defaults_overwrite(external_config['write_pdf_file'][1])
             self.write_pdf_file(**params)
 
         # Reset file counter after all files in dir have been processed.
@@ -200,10 +200,10 @@ class ImageProcessor:
         return image
 
     @staticmethod
-    def checker(params: dict[str, str | int | float | None]) -> dict:
+    def check_defaults_overwrite(params: dict[str, str | int | float | None]) -> dict:
         """
         Check if config overwrites default parameters of given process,
-         ie. if passes not None value for any parameter.
+         i. e. if passes not None value for any parameter.
         :param params: Parameters from config dictionary.
         :return: Dict of items in config which values are not None.
         """
