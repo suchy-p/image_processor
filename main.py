@@ -40,6 +40,9 @@ config = {'color_space': 'color',
                                   'beta': None
                                    }
                                   ],
+          'stress': [True, {'iterations': 4,
+                            'radius': 1500,
+                            'samples': 3}],
           'denoise_image': [False, {'filter_strength': 10}],
           'reverse_colors': [False],
           'run_rotate_adjustment': [False, {'rotation_angle': 90}],
