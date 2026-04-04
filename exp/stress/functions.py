@@ -12,36 +12,36 @@ def get_image_shape(image: np.ndarray):
     return tuple(list_for_new_array)
 
 
-def get_random_samples(height, width, sampling_range, sample_size):
+def get_random_samples(height, width, radius, samples):
     height, width = height, width
-    sampling_range = sampling_range
-    sample_size = sample_size
-    samples = []
+    radius = radius
+    samples = samples
+    random_samples = []
 
     for h in range(height):
         for w in range(width):
             height_sample = np.random.randint(
-                low= 0 if h == 0 or h - sampling_range <= 0 else h -
-                                                                sampling_range,
-                high= h + sampling_range if sampling_range >= h else h,
-                size=sample_size,
+                low= 0 if h == 0 or h - radius <= 0 else h -
+                                                         radius,
+                high=h + radius if radius >= h else h,
+                size=samples,
                 dtype=int
             )
             width_sample = np.random.randint(
-                low= 0 if w == 0 or w - sampling_range <= 0 else w -
-                                                                sampling_range,
-                high= w + sampling_range if sampling_range >= w else w,
-                size=sample_size,
+                low= 0 if w == 0 or w - radius <= 0 else w -
+                                                         radius,
+                high=w + radius if radius >= w else w,
+                size=samples,
                 dtype=int
             )
             samples.append(tuple(zip(height_sample, width_sample)))
 
-    return samples
+    return random_samples
 
 
-def get_envelopes(image, samples):
+def get_envelopes(image, random_samples):
     image = image
-    samples = samples
+    random_samples = random_samples
 
     red_channel = set()
     green_channel = set()
@@ -53,8 +53,8 @@ def get_envelopes(image, samples):
     max_envelope = list()
 
     if len(image[(0,0)]) == 3:
-        for sample in samples:
-            r, g, b = image[sample]
+        for random_sample in random_samples:
+            r, g, b = image[random_sample]
             red_channel.add(r)
             green_channel.add(g)
             blue_channel.add(b)
@@ -65,8 +65,8 @@ def get_envelopes(image, samples):
                         )
 
     elif len(image[(0,0)]) == 1:
-        for sample in samples:
-            grey = int(image[sample])
+        for random_sample in random_samples:
+            grey = int(image[random_sample])
             greyscale.add(grey)
 
         min_envelope = (min(greyscale),)
