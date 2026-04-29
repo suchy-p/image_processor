@@ -165,4 +165,49 @@ def calculate_envelopes(height: int,
 
     return envelopes
 
+def calculate_stress (image: MatLike,
+                      height: int,
+                      width: int,
+                      channels: int,
+                      envelopes: list[tuple[np.ndarray, ...]]
+                      ) ->  np.ndarray:
+    """
+    Wykonuje transformację 'stress' (STRETCH) na obrazie na podstawie obliczonych obwiedni.
 
+    Normalizuje wartość każdego piksela względem jego lokalnego minimum i maksimum,
+    rozciągając kontrast. Obsługuje przypadki dzielenia przez zero (stałe tło).
+
+    :param image: Oryginalny obraz wejściowy.
+    :param height: Wysokość obrazu.
+    :param width: Szerokość obrazu.
+    :param channels: Liczba kanałów koloru.
+    :param envelopes: Lista lokalnych obwiedni (min, max) dla każdego piksela.
+    :return: Przetworzony obraz jako macierz NumPy o typie uint8.
+    """
+    image = image
+    height, width, channels = height, width, channels
+    envelopes = iter(envelopes)
+
+    new_image = []
+
+    for h in range(height):
+        for w in range(width):
+            p_channels = np.array(image[(h, w)])
+            min_envelopes, max_envelopes = zip(* next(envelopes)) if \
+                    channels == 3 else (next(envelopes))
+            min_envelopes = np.array(min_envelopes)
+            max_envelopes = np.array(max_envelopes)
+
+            numerator = p_channels - min_envelopes
+            denominator = max_envelopes - min_envelopes
+
+            try:
+                stress = numerator / denominator
+                stress = stress * 255
+            except ZeroDivisionError:
+                stress = 0
+
+            new_image.append(stress.astype(np.uint8))
+
+    new_image = np.array(new_image).reshape((height, width, channels))
+    return new_image
