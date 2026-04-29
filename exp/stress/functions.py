@@ -62,4 +62,59 @@ def draw_random_samples(height: int,
 
     return random_samples_coords
 
+def get_sample_values(image: MatLike,
+                      height: int,
+                      width: int,
+                      channels: int,
+                      sampling: int,
+                      random_samples_coords: tuple[tuple[int, int], ...]
+                      ) -> np.ndarray | tuple[np.ndarray, ...]:
+    """
+    Pobiera wartości intensywności pikseli dla zestawu przygotowanych współrzędnych próbkowania.
+
+    Funkcja obsługuje zarówno obrazy jednokanałowe (skala szarości), jak i trzykanałowe (RGB).
+
+    :param image: Obraz źródłowy jako macierz NumPy.
+    :param height: Docelowa wysokość wynikowej macierzy próbek.
+    :param width: Docelowa szerokość wynikowej macierzy próbek.
+    :param channels: Liczba kanałów obrazu (1 lub 3).
+    :param sampling: Liczba próbek przypadająca na każdy piksel.
+    :param random_samples_coords: Zagnieżdżona struktura współrzędnych do pobrania próbek.
+    :return: Macierz NumPy (dla 1 kanału) lub krotka trzech macierzy (dla 3 kanałów) z wartościami próbek.
+    """
+
+    image = image
+    height, width, channels = height, width, channels
+    sampling = sampling
+    random_samples_coords = random_samples_coords
+
+    grey = []
+    red = []
+    green = []
+    blue = []
+
+    if channels == 1:
+        for random_sample_coords_group in random_samples_coords:
+            for random_sample in random_sample_coords_group:
+                g = image[random_sample]
+                grey.append(g)
+
+        grey = np.array(grey).reshape((height, width, sampling))
+
+        return grey
+
+    elif channels == 3:
+        for random_sample_coords_group in random_samples_coords:
+            for random_sample in random_sample_coords_group:
+                r, g, b = image[random_sample]
+                red.append(r)
+                green.append(g)
+                blue.append(b)
+
+        red = np.array(red).reshape((height, width, sampling))
+        green = np.array(green).reshape((height, width, sampling))
+        blue = np.array(blue).reshape((height, width, sampling))
+
+        return red, green, blue
+
 
