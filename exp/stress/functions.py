@@ -117,4 +117,52 @@ def get_sample_values(image: MatLike,
 
         return red, green, blue
 
+def calculate_envelopes(height: int,
+                        width: int,
+                        channels: int,
+                        sample_values: np.ndarray | tuple[np.ndarray, ...]
+                        ) -> list[tuple[np.ndarray, ...]]:
+    """
+    Oblicza lokalne wartości minimalne i maksymalne (obwiednie) dla każdego piksela.
+
+    Przetwarza zebrane próbki, aby wyznaczyć zakres dynamiki (min/max) w lokalnym otoczeniu piksela.
+
+    :param height: Wysokość obrazu.
+    :param width: Szerokość obrazu.
+    :param channels: Liczba kanałów koloru.
+    :param sample_values: Wartości próbek uzyskane z funkcji get_sample_values.
+    :return: Lista zawierająca pary (minimum, maksimum) dla każdego piksela i kanału.
+    """
+    height, width, channels = height, width, channels
+    sample_values = sample_values
+
+    envelopes = []
+
+    if channels == 1:
+        grey = sample_values
+        for h in range(height):
+            for w in range(width):
+                g = grey[(h, w)]
+                local_min_and_max = (np.min(g), np.max(g))
+                envelopes.append(local_min_and_max)
+
+    elif channels == 3:
+        red, green, blue = sample_values
+
+        for h in range(height):
+            for w in range(width):
+                r, g, b = red[(h, w)], green[(h, w)], blue[(h, w)]
+
+                min_sample_value = np.array([np.min(r),
+                                          np.min(g),
+                                          np.min(b)])
+                max_sample_value = np.array([np.max(r),
+                                          np.max(g),
+                                          np.max(b)])
+                local_min_and_max = zip(min_sample_value,
+                                           max_sample_value)
+                envelopes.append(local_min_and_max)
+
+    return envelopes
+
 
