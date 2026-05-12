@@ -22,6 +22,7 @@ def get_file_list(input_dir: str) -> list[str]:
 
     return file_list
 
+
 def draw_random_samples(height: int,
                         width: int,
                         radius: int,
@@ -80,3 +81,29 @@ def draw_random_samples(height: int,
                                      axis=-1)
 
     return random_samples_coords
+
+
+def get_sample_values(image: MatLike,
+                      channels: int,
+                      random_samples_coords: np.ndarray
+                      ) -> np.ndarray:
+    """
+    Retrieves pixel intensity values for a matrix of sampling coordinates.
+
+    Uses vectorized indexing to extract pixel values from the source image for
+    each pre-calculated coordinate.
+
+    :param image: Source image as a NumPy array.
+    :param channels: Number of image channels (1 or 3).
+    :param random_samples_coords: NumPy array of coordinates to sample from.
+    :return: A NumPy array containing the sampled values.
+    """
+    y_axis = random_samples_coords[..., 0]
+    x_axis = random_samples_coords[..., 1]
+    all_samples = image[y_axis, x_axis]
+    # In rgb image transpose all_samples, so samples are on third axis,
+    # for the sake of arrays shape continuity: height, width, channels, other
+    if channels == 3:
+        all_samples = all_samples.transpose(0, 1, 3, 2)
+
+    return all_samples
