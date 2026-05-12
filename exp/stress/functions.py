@@ -107,3 +107,35 @@ def get_sample_values(image: MatLike,
         all_samples = all_samples.transpose(0, 1, 3, 2)
 
     return all_samples
+
+
+def calculate_envelopes(channels: int,
+                        sample_values: np.ndarray
+                        ) -> np.ndarray:
+    """
+    Calculates local minimum and maximum values (envelopes) for each pixel.
+
+    Processes collected samples to determine the dynamic range (min/max) in the
+    pixel's local neighborhood. Values are normalized to the 0.0-1.0 range.
+
+    :param channels: Number of color channels.
+    :param sample_values: Sample values obtained from get_sample_values.
+    :return: A NumPy array of shape (height, width, [channels], 2) containing
+             [min, max] values for each pixel and channel.
+    """
+
+    local_min = None
+    local_max = None
+
+    if channels == 1:
+        local_min = np.min(sample_values, axis=2).astype(float)/255.0
+        local_max = np.max(sample_values, axis=2).astype(float)/255.0
+
+    elif channels == 3:
+        local_min = np.min(sample_values, axis=3).astype(float)/255.0
+        local_max = np.max(sample_values, axis=3).astype(float)/255.0
+
+    envelopes = np.stack([local_min, local_max], axis=-1)
+
+    return envelopes
+
