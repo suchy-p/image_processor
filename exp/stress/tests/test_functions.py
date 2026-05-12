@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from random import randint
 from exp.stress.functions import (apply_stress, get_image_shape,
-                                  get_random_samples, get_envelopes)
+                                  draw_random_samples, get_envelopes)
 
 
 def test_get_image_shape():
@@ -18,7 +18,6 @@ def test_get_image_shape():
             for b in range(array.shape[1]):
                 array_vals.append((a, b))
         array_vals = tuple(array_vals)
-
         assert get_image_shape(array) == array_vals
 
 
@@ -29,7 +28,7 @@ def test_get_random_samples():
 
     for sampling_range in test_sampling_ranges:
         for sample in test_samples:
-            res = get_random_samples(test_image, sampling_range, sample)
+            res = draw_random_samples(test_image, sampling_range, sample)
             assert len(res[0]) == sample
 
 # @pytest.mark.skip(reason="Not implemented")
@@ -46,11 +45,15 @@ def test_apply_stress():
     for h in range(image_shape[0]):
         for w in range(image_shape[1]):
             res = apply_stress(test_image, samples, h, w)
-            assert (0 <= int(i) <= 255 for i in res)
+            for i in res:
+                assert 0 <= int(i) <= 255
+            # assert (0 <= int(i) <= 255 for i in res)
             res_black = apply_stress(test_image_black, samples, h, w)
-            assert (int(i) == 0  for i in res_black)
+            for i in res_black:
+                assert int(i) == 0
             res_white = apply_stress(test_image_white, samples, h, w)
-            assert (int(i) == 255 for i in res_white)
+            for i in res_white:
+                assert int(i) == 0
 
 
 def test_get_envelopes():
@@ -65,12 +68,14 @@ def test_get_envelopes():
 
     for h in range(image_shape[0]):
         for w in range(image_shape[1]):
-            res_rgb = get_envelopes(test_image_rgb, samples)
+            pixel_rgb = test_image_rgb[(h, w)]
+            res_rgb = get_envelopes(pixel_rgb,test_image_rgb, samples)
             assert len(res_rgb[0]) == 3 and len(res_rgb[1]) == 3
             assert min(res_rgb[0]) >=0 and max(res_rgb[0]) <= 255
             assert min(res_rgb[1]) >=0 and max(res_rgb[1]) <= 255
 
-            res_grey = get_envelopes(test_image_grey, samples)
+            pixel_grey = test_image_grey[(h, w)]
+            res_grey = get_envelopes(pixel_grey,test_image_grey, samples)
             assert len(res_grey[0]) == 1 and len(res_grey[1]) == 1
             assert min(res_grey[0]) >=0 and max(res_grey[0]) <= 255
             assert min(res_grey[1]) >=0 and max(res_grey[1]) <= 255
