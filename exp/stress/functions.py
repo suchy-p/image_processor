@@ -139,3 +139,40 @@ def calculate_envelopes(channels: int,
 
     return envelopes
 
+
+def calculate_stress (image: MatLike,
+                      envelopes: np.ndarray,
+                      gamma: float = 1.0,
+                      ) ->  np.ndarray:
+    """
+    Performs the STRESS transformation on the image based on local envelopes.
+
+    Normalizes pixel values relative to local minimum and maximum envelopes.
+    Includes gamma correction and internal normalization to a 0.0-1.0 range.
+
+    :param image: Original input image.
+    :param envelopes: Matrix of local envelopes [min, max] for each pixel.
+    :param gamma: Gamma correction factor (default 1.0).
+    :return: Processed image as a floating-point NumPy array (0.0 to 1.0).
+    """
+    # Normalize image for 0.0 - 1.0 range.
+    image = image.astype(float)/255.0
+    min_envelopes = envelopes[..., 0]
+    max_envelopes = envelopes[..., 1]
+
+    numerator = image - min_envelopes
+    denominator = max_envelopes - min_envelopes
+
+    # Calculating stress; out=image.astype(float) as fallback for zero
+    # division handling.
+    stress =  np.divide(numerator, denominator,
+                       out=image,
+                       dtype=float,
+                       where=denominator!=0
+                        )
+    # Normalize values.
+    stress = np.clip(stress, 0, 1)
+    # Gamma correction, if needed.
+    new_image = np.power(stress, 1.0/gamma)
+
+    return new_image
