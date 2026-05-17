@@ -1,12 +1,14 @@
+import os
+
 from image_processor import ImageProcessor
 
-input_dir = ""
-output_dir = ""
+input_dir = os.path.expanduser("~/Leon (Kopia)")
+output_dir = os.path.join(input_dir, 'processed_images')
 
 config = {'color_space': 'color',
           'write_processed_image': [True,
                                 {'file_extension': 'jpg',
-                                 'quality': 9
+                                 'quality': 80
                                }
                                     ],
           'write_pdf_file': [False,
@@ -40,13 +42,19 @@ config = {'color_space': 'color',
                                   'beta': None
                                    }
                                   ],
-          'denoise_image': [False, {'filter_strength': 10}],
+          'denoise_image': [True, {'filter_strength': 10}],
           'reverse_colors': [False],
           'run_rotate_adjustment': [False, {'rotation_angle': 90}],
           'sharpen_image': [False, {'kernel': 'unsharp_mask',
                                    'strength': None
                                     }
                             ],
+          'stress': [True, {'radius': None,
+                            'sampling': 20,
+                            'iterations': 30,
+                            # Add gamma controls,
+                            }
+                     ],
           }
 
 if __name__ == '__main__':
