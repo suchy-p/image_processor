@@ -1,6 +1,6 @@
-from os.path import expanduser
+# from os.path import expanduser
 
-import cv2
+# import cv2
 from cv2.typing import MatLike
 import numpy as np
 
@@ -8,31 +8,28 @@ from exp.stress.functions import (
     calculate_envelopes,
     calculate_stress,
     draw_random_samples,
-    get_file_list,
     get_sample_values,
 )
 
+def stress_pipeline(image: MatLike,
+                    radius: int | None = None,
+                    sampling: int = 5,
+                    iterations: int = 3,
+                    ):
 
-input_dir = expanduser("~/Leon (Kopia)")
-radius = 1169
-sampling = 10
-iterations = 20
-
-files_to_process = get_file_list(input_dir)
-
-
-for file in files_to_process:
-    # Open image as Open cv object
-    image: MatLike = cv2.imread(file)
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     new_image = []
     # Get image dimensions.
     height, width = image.shape[:2]
-    channels = image.shape[2] if len(image.shape) == 3 else 1
+    channels = 3 if len(image.shape) == 3 else 1
+    # If radius is left as default in config, choose longer edge as
+    # recommended in stress documentation [or height if both are equal].
+    if radius is None:
+        radius = height if height >= width else width
 
     for iteration in range(iterations):
-        print("Iteration: ", iteration + 1)
-
+        print("Stress iteration: ", iteration + 1)
+        # Get random samples for each pixel in an image.
         random_samples_coords = draw_random_samples(height=height,
                                                     width=width,
                                                     radius=radius,
@@ -75,6 +72,7 @@ for file in files_to_process:
     new_image = np.mean(new_image, axis=-1)*255
     # Reshape array to shape of output image, write file.
     new_image = new_image.reshape((height, width, channels)).astype(np.uint8)
-    new_image = cv2.imwrite(file, new_image)
     print("Done")
+    return new_image
+
 
