@@ -6,14 +6,12 @@ import numpy as np
 from PIL import Image
 from pypdf import PdfWriter
 
+from exp.stress.pipeline import stress_pipeline
 
 # args for class instance
-folder_path: str = ('C:\\Users\\Patryk\\Desktop\\stress')
-output_path: str = os.path.join(folder_path, 'opencv_')
+# folder_path: str = os.path.expanduser("~/Leon (Kopia)")
+# output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
-# todo :
-#       create pdf [with reducing image size],
-#       refactor above
 
 
 class ImageProcessor:
@@ -81,7 +79,7 @@ class ImageProcessor:
             if external_config['sharpen_image'][0]:
                 params = self.checker(external_config['sharpen_image'][1])
                 image_object = self.sharpen_image(image_object,
-                                                  ** params
+                                                  **params
                                                   )
 
             if external_config['bilateral_filter'][0]:
@@ -96,6 +94,12 @@ class ImageProcessor:
                                                   color_space=color_space,
                                                   **params
                                                   )
+
+            if external_config['stress'][0]:
+                params = self.checker(external_config['stress'][1])
+                image_object = stress_pipeline(image_object,
+                                               **params
+                                               )
 
             if external_config['black_and_white'][0]:
                 params = self.checker(external_config['black_and_white'][1])
@@ -539,7 +543,7 @@ class ImageProcessor:
         # Check for existing output directory, then change working dir.
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
-        os.chdir(output_path)
+        os.chdir(output_dir)
 
         # Write Open cv object as image file.
         try:
@@ -554,9 +558,9 @@ class ImageProcessor:
             print(f'Probably invalid file extension. Choose jpg or png. \n '
                   f'Error message:\n {e}')
 
-image_processor = ImageProcessor(input_dir=folder_path,
-                                 output_dir=output_path
-                                 )
+# image_processor = ImageProcessor(input_dir=folder_path,
+#                                  output_dir=output_path
+#                                  )
 
 
 
