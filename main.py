@@ -1,63 +1,14 @@
-import os
+import tomllib
 
 from image_processor import ImageProcessor
 
-input_dir = os.path.expanduser("~/Leon (Kopia)")
-output_dir = os.path.join(input_dir, 'processed_images')
 
-config = {'color_space': 'color',
-          'write_processed_image': [True,
-                                {'file_extension': 'jpg',
-                                 'quality': 80
-                               }
-                                    ],
-          'write_pdf_file': [False,
-                             {'images_path': output_dir,
-                              'images_file_type': 'png',
-                              'pdf_file_name': 'Tygodnik '
-                                              'Rolniczo-Przemysłowy',
-                              'pdf_file_compression': None
-                              }
-                             ],
-          'bilateral_filter': [False,
-                               {'d': None,
-                                'sigma_color': None,
-                                'sigma_space': None
-                                }
-                               ],
-          'black_and_white': [False,
-                              {'method': 'gaussian',
-                               'max_value': None,
-                               'block_size': None,
-                               'constant': None
-                               }
-                              ],
-          'clahe': [True,
-                    {'clip_limit': None,
-                     'tile_grid_size': None
-                     }
-                    ],
-          'contrast_brightness': [False,
-                                  {'alpha': None,
-                                  'beta': None
-                                   }
-                                  ],
-          'denoise_image': [True, {'filter_strength': 10}],
-          'reverse_colors': [False],
-          'run_rotate_adjustment': [False, {'rotation_angle': 90}],
-          'sharpen_image': [False, {'kernel': 'unsharp_mask',
-                                   'strength': None
-                                    }
-                            ],
-          'stress': [True, {'radius': None,
-                            'sampling': 20,
-                            'iterations': 30,
-                            # Add gamma controls,
-                            }
-                     ],
-          }
+def load_settings(settings_file: str) -> dict:
+    with open(settings_file, "rb") as f:
+        return tomllib.load(f)
 
 if __name__ == '__main__':
-    image_processor = ImageProcessor(input_dir=input_dir,
-                                     output_dir=output_dir)
-    image_processor.image_processing_pipeline(**config)
+    settings = load_settings("settings.toml")
+    
+    image_processor = ImageProcessor(settings=settings)
+    image_processor.image_processing_pipeline()

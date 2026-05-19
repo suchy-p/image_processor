@@ -1,5 +1,6 @@
 import os
 
+import cv2
 from cv2.typing import MatLike
 import numpy as np
 
@@ -142,7 +143,7 @@ def calculate_envelopes(channels: int,
 
 def calculate_stress (image: MatLike,
                       envelopes: np.ndarray,
-                      gamma: float = 1.0,
+                      gamma: float = 1.25,
                       ) ->  np.ndarray:
     """
     Performs the STRESS transformation on the image based on local envelopes.

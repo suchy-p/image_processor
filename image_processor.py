@@ -8,33 +8,30 @@ from pypdf import PdfWriter
 
 from exp.stress.pipeline import stress_pipeline
 
-# args for class instance
-# folder_path: str = os.path.expanduser("~/Leon (Kopia)")
-# output_path: str = os.path.join(folder_path, 'opencv_')
 rotate_angle: int = 90
 
 
 class ImageProcessor:
 
-    def __init__(self, input_dir, output_dir):
-        self.input_dir = input_dir
-        self.output_dir = output_dir
+    def __init__(self, settings: dict):
+        self.settings = settings
+        self.input_dir = os.path.expanduser(settings['paths']['input_dir'])
+        self.output_dir = os.path.expanduser(settings['paths']['output_dir'])
         self.file_counter = 1
 
-        self.color_space = {'color': cv2.IMREAD_COLOR,
-                            'grayscale': cv2.IMREAD_GRAYSCALE,
-                            }
+        self.color_space = {
+            'color': cv2.IMREAD_COLOR,
+            'grayscale': cv2.IMREAD_GRAYSCALE,
+        }
 
-    def image_processing_pipeline(self, **config: dict)->None :
+    def image_processing_pipeline(self) -> None:
         """
         Runs processes enabled in configuration dict, passes params to
          selected processes.
-        :param config: Dict containing configuration options.
         :return: None, applies selected processes to image files.
         """
-
-        external_config = config
-        color_space = self.color_space[external_config['color_space']]
+        color_space_key = self.settings['color_space']
+        color_space_val = self.color_space[color_space_key]
 
         # Create list of images for processing.
         os.chdir(self.input_dir)
@@ -47,75 +44,71 @@ class ImageProcessor:
             # If os.chdir is placed out of loop only Open cv gets errors.
             os.chdir(self.input_dir)
             # Open image as Open cv object
-            image_object: MatLike = cv2.imread(item, color_space)
+            image_object: MatLike = cv2.imread(item, color_space_val)
+
+            processes = self.settings['processes']
 
             # Check if given functionality is enabled in config.
-            if external_config['run_rotate_adjustment'][0]:
-                # Store config params as variable.
-                params = external_config['run_rotate_adjustment'][1]
-                image_object = self.rotate_image(image_object,
-                                                 rotation_angle=params[
-                                               'rotation_angle']
-                                                 )
+            if processes['rotate_image']['enabled']:
+                params = self.checker(processes['rotate_image'])
+                image_object = self.rotate_image(image_object, **params)
 
-            if external_config['reverse_colors'][0]:
-            # No config params, since method does only color inversion.
+            if processes['reverse_colors']['enabled']:
                 image_object = self.reverse_color(image_object)
 
-            if external_config['clahe'][0]:
-                params = self.checker(external_config['clahe'][1])
+            if processes['clahe']['enabled']:
+                params = self.checker(processes['clahe'])
                 image_object = self.clahe(image_object,
-                                          color_space=color_space,
+                                          color_space=color_space_val,
                                           **params
                                           )
 
-            if external_config['contrast_brightness'][0]:
-                params = self.checker(external_config[
-                                          'contrast_brightness'][1])
+            if processes['adjust_brightness_and_contrast']['enabled']:
+                params = self.checker(processes['adjust_brightness_and_contrast'])
                 image_object = self.contrast_brightness(image_object,
                                                         **params
                                                         )
 
-            if external_config['sharpen_image'][0]:
-                params = self.checker(external_config['sharpen_image'][1])
+            if processes['sharpen_image']['enabled']:
+                params = self.checker(processes['sharpen_image'])
                 image_object = self.sharpen_image(image_object,
                                                   **params
                                                   )
 
-            if external_config['bilateral_filter'][0]:
-                params = self.checker(external_config['bilateral_filter'][1])
+            if processes['bilateral_filter']['enabled']:
+                params = self.checker(processes['bilateral_filter'])
                 image_object = self.bilateral_filter(image_object,
                                                      **params
                                                      )
 
-            if external_config['denoise_image'][0]:
-                params = self.checker(external_config['denoise_image'][1])
+            if processes['denoise_filter']['enabled']:
+                params = self.checker(processes['denoise_filter'])
                 image_object = self.denoise_image(image_object,
-                                                  color_space=color_space,
+                                                  color_space=color_space_val,
                                                   **params
                                                   )
 
-            if external_config['stress'][0]:
-                params = self.checker(external_config['stress'][1])
+            if processes['stress']['enabled']:
+                params = self.checker(processes['stress'])
                 image_object = stress_pipeline(image_object,
                                                **params
                                                )
 
-            if external_config['black_and_white'][0]:
-                params = self.checker(external_config['black_and_white'][1])
-                image_object = self.black_and_white(image_object,
-                                                    **params
-                                                    )
+            if processes['thresholding']['enabled']:
+                params = self.checker(processes['thresholding'])
+                image_object = self.thresholding(image_object,
+                                                 **params
+                                                 )
 
-            if external_config['write_processed_image'][0]:
-                params = self.checker(external_config['write_processed_image'][1])
+            if self.settings['write_output']['image']['enabled']:
+                params = self.checker(self.settings['write_output']['image'])
                 self.write_processed_image(image_object,
-                                       output_dir=self.output_dir,
-                                       **params
-                                       )
+                                           output_dir=self.output_dir,
+                                           **params
+                                           )
 
-        if external_config['write_pdf_file'][0]:
-            params = self.checker(external_config['write_pdf_file'][1])
+        if self.settings['write_output']['pdf']['enabled']:
+            params = self.checker(self.settings['write_output']['pdf'])
             self.write_pdf_file(**params)
 
         # Reset file counter after all files in dir have been processed.
@@ -125,7 +118,7 @@ class ImageProcessor:
     def bilateral_filter(image_object: MatLike,
                          d: int = 9,
                          sigma_color: int = 75,
-                         sigma_space:int = 75) -> MatLike:
+                         sigma_space: int = 75) -> MatLike:
         """
         Bilateral filter as alternative to other noise removal techniques.
         :param image_object: Open cv object, ie. image file converted to numpy
@@ -153,12 +146,11 @@ class ImageProcessor:
 
         return image
 
-    @staticmethod
-    def black_and_white(image_object: MatLike,
-                        method: str = 'mean',
-                        max_value: int = 255,
-                        block_size: int = 199,
-                        constant: int = 40) -> MatLike:
+    def thresholding(self, image_object: MatLike,
+                     method: str = 'mean',
+                     max_value: int = 255,
+                     block_size: int = 199,
+                     constant: int = 40) -> MatLike:
         """
          Create black and white images using adaptive thresholding.
         :param image_object: Open cv object, ie. image file converted to numpy
@@ -177,7 +169,7 @@ class ImageProcessor:
 
         # Check color space in config, change color space to grayscale if
         # needed.
-        if config['color_space'] == 'color':
+        if self.settings['color_space'] == 'color':
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
         adaptive_method = {'mean': cv2.ADAPTIVE_THRESH_MEAN_C,
@@ -205,7 +197,9 @@ class ImageProcessor:
         not_none_values = dict()
 
         for param in check_params:
-            if check_params[param] is not None:
+            if param == 'enabled':
+                continue
+            if check_params[param] is not None and check_params[param] != "None":
                 not_none_values[param] = check_params[param]
 
         return not_none_values
@@ -255,7 +249,7 @@ class ImageProcessor:
 
     @staticmethod
     def contrast_brightness(image_object: MatLike,
-                            alpha: int|float = 1,
+                            alpha: int | float = 1,
                             beta: int = 0) -> MatLike:
         """
         Contrast and brightness adjustment. You may want to apply it when not
@@ -276,7 +270,7 @@ class ImageProcessor:
 
         return image
 
-    @ staticmethod
+    @staticmethod
     def denoise_image(image_object: MatLike,
                       color_space: int,
                       filter_strength: int = 10) -> MatLike:
@@ -340,13 +334,13 @@ class ImageProcessor:
 
     @staticmethod
     def rotate_image(image_object: MatLike,
-                     rotation_angle: int,
+                     angle: int,
                      ) -> MatLike:
         """
         Rotate Open cv object by given value.
         :param image_object: Open cv object, ie. image file converted to numpy
          array.
-        :param rotation_angle: Angle for rotating object clockwise by 90
+        :param angle: Angle for rotating object clockwise by 90
          degrees steps: 90, 180 or 270 degrees.
         :return: Numpy array overwriting original image_object for further
          manipulations.
@@ -359,7 +353,7 @@ class ImageProcessor:
 
         # Apply image rotation.
         image: MatLike = image_object
-        rotated_image = cv2.rotate(image, rotate.get(rotation_angle,
+        rotated_image = cv2.rotate(image, rotate.get(angle,
                                                      'Invalid rotation value.'
                                                      )
                                    )
@@ -395,18 +389,18 @@ class ImageProcessor:
         # Standard sharpening kernel from Wikipedia.
         sharpening_kernel = np.multiply(float(f'1.{filter_strength}'),
                                         np.array([[0, -1, 0],
-                                                [-1, 5, -1],
-                                                [0, -1, 0]])
+                                                  [-1, 5, -1],
+                                                  [0, -1, 0]])
                                         )
 
         # Just like above, untested as of 16.04.25. exp 0.00425
         unsharp_masking_kernel = np.multiply(0.00390625 * float(
-                                        f'1.{filter_strength}'),
-                                    np.array([[1, 4, 6, 4, 1],
-                                          [4, 16, 24, 16, 4],
-                                          [6, 24, 46, 24, 6],
-                                          [4, 16, 24, 16, 4],
-                                           [1, 4, 6, 4, 1]])
+            f'1.{filter_strength}'),
+                                             np.array([[1, 4, 6, 4, 1],
+                                                       [4, 16, 24, 16, 4],
+                                                       [6, 24, 46, 24, 6],
+                                                       [4, 16, 24, 16, 4],
+                                                       [1, 4, 6, 4, 1]])
                                              )
 
         # Dict of defined kernels to choose from.
@@ -418,11 +412,11 @@ class ImageProcessor:
         apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
         return apply_kernel
 
-    @ staticmethod
+    @staticmethod
     def write_pdf_file(images_path: str,
-                       images_file_type: str,
-                       pdf_file_name: str,
-                       pdf_file_compression: int = 0
+                       images_file_type: str = 'jpg',
+                       pdf_name: str = 'Document',
+                       pdf_compression: int = 0
                        ) -> None:
         """
         Creates pdf file from processed images.
@@ -430,16 +424,14 @@ class ImageProcessor:
         :param images_file_type: Specify image file type, so this func
          doesn't try to create pdf from non-image files that could be in
           images directory (e.g. previously created pdf file).
-        :param pdf_file_name: Name of pdf file containing all images from
+        :param pdf_name: Name of pdf file containing all images from
          specified directory.
-        :param pdf_file_compression: Compression factor for pdf file:
+        :param pdf_compression: Compression factor for pdf file:
          from 0 (no compression) to 9 (highest compression). Default value = 0.
         :return: None, writes pdf file in directory containing images.
         """
-        output_file_name = f'{pdf_file_name}.pdf'
-        pdf_compression = pdf_file_compression
+        output_file_name = f'{pdf_name}.pdf'
         # Path for temp single-image pdfs, deleted after merging into one file.
-        temp_dir_path = '_temp'
         counter = 1
 
         # Create list of images for pdf convertion.
@@ -467,10 +459,10 @@ class ImageProcessor:
         for pdf in single_image_pdfs:
             merger.append(pdf, 'rb')
 
-        with open ('_tempfile_merged.pdf', 'wb') as file:
+        with open('_tempfile_merged.pdf', 'wb') as file:
             merger.write(file)
 
-        # Compress temp pdf file if pdf_file_compression > 0 and create
+        # Compress temp pdf file if pdf_compression > 0 and create
         # output file. For me it doesn't seem to work at all, leaving it
         # here just in case.
         if pdf_compression > 0:
@@ -479,31 +471,31 @@ class ImageProcessor:
             for page in pdf_to_compress.pages:
                 page.compress_content_streams(level=pdf_compression)
 
-            with open (output_file_name, 'wb') as file:
+            with open(output_file_name, 'wb') as file:
                 pdf_to_compress.write(file)
 
         else:
             # If compression value == 0, copy temp pdf file as output file.
-            source_file = os.path.join(output_path, '_tempfile_merged.pdf')
-            destination_path = os.path.join(output_path, output_file_name)
+            source_file = os.path.join(images_path, '_tempfile_merged.pdf')
+            destination_path = os.path.join(images_path, output_file_name)
 
             if os.path.isfile(destination_path):
                 os.remove(destination_path)
             os.rename(source_file, destination_path)
 
         # Delete temp files.
-        for file in os.listdir(output_path):
+        for file in os.listdir(images_path):
             if file.startswith('_tempfile'):
                 os.remove(file)
 
         print('Finished.')
 
     def write_processed_image(self,
-                          image_object: MatLike,
-                          output_dir: str,
-                          file_extension: str = 'jpg',
-                          quality: int|None = None
-                          ) -> None:
+                              image_object: MatLike,
+                              output_dir: str,
+                              file_extension: str = 'jpg',
+                              quality: int | None = None
+                              ) -> None:
         """
         Write Open cv object as image file of type chosen by user
         (suggested formats: jpg or png).
@@ -518,9 +510,9 @@ class ImageProcessor:
         """
         image_to_write: MatLike = image_object
         file_name = f'Image_{str(self.file_counter).zfill(4)}.{file_extension}'
-        write_quality_param: list[int|None] = [int(cv2.IMWRITE_JPEG_QUALITY),
-                                               quality
-                                               ]
+        write_quality_param: list[int | None] = [int(cv2.IMWRITE_JPEG_QUALITY),
+                                                 quality
+                                                 ]
 
         # Change jpeg quality to png compression if file_extension == png.
         if file_extension == 'png':
@@ -531,14 +523,14 @@ class ImageProcessor:
             # Check if provided png compression factor is correct when not
             # using default value.
             if quality is not None:
-                assert quality in range (0, 10), 'Compression value should '\
+                assert quality in range(0, 10), 'Compression value should ' \
                                                 'be integer between 0 and 9.'
 
         # Check if provided jpg quality value is correct when not using
         # default value.
         if file_extension == 'jpg' and quality is not None:
-            assert quality in range (0, 101), 'Quality value should be '\
-                                               'integer between 0 and 100.'
+            assert quality in range(0, 101), 'Quality value should be ' \
+                                             'integer between 0 and 100.'
 
         # Check for existing output directory, then change working dir.
         if not os.path.isdir(output_dir):
@@ -551,16 +543,9 @@ class ImageProcessor:
                         image_to_write,
                         write_quality_param
                         )
-            print (f'{file_name} file created.')
+            print(f'{file_name} file created.')
             self.file_counter += 1
         # In case of typo in provided file_extension.
         except cv2.error as e:
             print(f'Probably invalid file extension. Choose jpg or png. \n '
                   f'Error message:\n {e}')
-
-# image_processor = ImageProcessor(input_dir=folder_path,
-#                                  output_dir=output_path
-#                                  )
-
-
-

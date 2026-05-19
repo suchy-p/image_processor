@@ -1,0 +1,64 @@
+# Color or grayscale.
+color_space = "color"
+
+[paths]
+input_dir = "~/Leon (Kopia)"
+output_dir = "processed_images"
+
+[processes.adjust_brightness_and_contrast]
+enabled = false
+alpha = "None"
+beta = "None"
+
+[processes.bilateral_filter]
+enabled = false
+d = "None"
+sigma_color = "None"
+sigma_space = "None"
+
+[processes.clahe]
+enabled = false
+clip_limit = "None"
+tile_grid_size = "None"
+
+[processes.denoise_filter]
+enabled = false
+filter_strength = "None"
+
+[processes.reverse_colors]
+enabled = false
+
+[processes.rotate_image]
+enabled = false
+angle = 90
+
+[processes.sharpen_image]
+enabled = false
+kernel = "unsharp_mask"
+strength = "None"
+
+[processes.stress]
+enabled = true
+convert_to_grayscale = false
+radius = "None"
+sampling = 20
+iterations = 30
+gamma = 1.5
+
+[processes.thresholding]
+enabled = false
+method = "gaussian"
+max_value = "None"
+block_size = "None"
+constant = "None"
+
+[write_output.image]
+enabled = true
+file_extension = "jpg"
+quality = 80
+
+[write_output.pdf]
+enabled = false
+images_path = "processed_images"
+pdf_name = "Document"
+pdf_compression = "None"
