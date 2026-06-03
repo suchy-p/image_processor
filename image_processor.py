@@ -24,95 +24,95 @@ class ImageProcessor:
             'grayscale': cv2.IMREAD_GRAYSCALE,
         }
 
-    def image_processing_pipeline(self) -> None:
-        """
-        Runs processes enabled in configuration dict, passes params to
-         selected processes.
-        :return: None, applies selected processes to image files.
-        """
-        color_space_key = self.settings['color_space']
-        color_space_val = self.color_space[color_space_key]
-
-        # Create list of images for processing.
-        os.chdir(self.input_dir)
-        to_process: list[str] = [item for item in os.listdir(os.getcwd())
-                                 if os.path.isfile(item)]
-        print(to_process)
-
-        # Apply selected processes to each image
-        for item in to_process:
-            # If os.chdir is placed out of loop only Open cv gets errors.
-            os.chdir(self.input_dir)
-            # Open image as Open cv object
-            image_object: MatLike = cv2.imread(item, color_space_val)
-
-            processes = self.settings['processes']
-
-            # Check if given functionality is enabled in config.
-            if processes['rotate_image']['enabled']:
-                params = self.checker(processes['rotate_image'])
-                image_object = self.rotate_image(image_object, **params)
-
-            if processes['reverse_colors']['enabled']:
-                image_object = self.reverse_color(image_object)
-
-            if processes['clahe']['enabled']:
-                params = self.checker(processes['clahe'])
-                image_object = self.clahe(image_object,
-                                          color_space=color_space_val,
-                                          **params
-                                          )
-
-            if processes['adjust_brightness_and_contrast']['enabled']:
-                params = self.checker(processes['adjust_brightness_and_contrast'])
-                image_object = self.contrast_brightness(image_object,
-                                                        **params
-                                                        )
-
-            if processes['sharpen_image']['enabled']:
-                params = self.checker(processes['sharpen_image'])
-                image_object = self.sharpen_image(image_object,
-                                                  **params
-                                                  )
-
-            if processes['bilateral_filter']['enabled']:
-                params = self.checker(processes['bilateral_filter'])
-                image_object = self.bilateral_filter(image_object,
-                                                     **params
-                                                     )
-
-            if processes['denoise_filter']['enabled']:
-                params = self.checker(processes['denoise_filter'])
-                image_object = self.denoise_image(image_object,
-                                                  color_space=color_space_val,
-                                                  **params
-                                                  )
-
-            if processes['stress']['enabled']:
-                params = self.checker(processes['stress'])
-                image_object = stress_pipeline(image_object,
-                                               **params
-                                               )
-
-            if processes['thresholding']['enabled']:
-                params = self.checker(processes['thresholding'])
-                image_object = self.thresholding(image_object,
-                                                 **params
-                                                 )
-
-            if self.settings['write_output']['image']['enabled']:
-                params = self.checker(self.settings['write_output']['image'])
-                self.write_processed_image(image_object,
-                                           output_dir=self.output_dir,
-                                           **params
-                                           )
-
-        if self.settings['write_output']['pdf']['enabled']:
-            params = self.checker(self.settings['write_output']['pdf'])
-            self.write_pdf_file(**params)
-
-        # Reset file counter after all files in dir have been processed.
-        self.file_counter = 1
+    # def image_processing_pipeline(self) -> None:
+    #     """
+    #     Runs processes enabled in configuration dict, passes params to
+    #      selected processes.
+    #     :return: None, applies selected processes to image files.
+    #     """
+    #     color_space_key = self.settings['color_space']
+    #     color_space_val = self.color_space[color_space_key]
+    #
+    #     # Create list of images for processing.
+    #     os.chdir(self.input_dir)
+    #     to_process: list[str] = [item for item in os.listdir(os.getcwd())
+    #                              if os.path.isfile(item)]
+    #     print(to_process)
+    #
+    #     # Apply selected processes to each image
+    #     for item in to_process:
+    #         # If os.chdir is placed out of loop only Open cv gets errors.
+    #         os.chdir(self.input_dir)
+    #         # Open image as Open cv object
+    #         image_object: MatLike = cv2.imread(item, color_space_val)
+    #
+    #         processes = self.settings['processes']
+    #
+    #         # Check if given functionality is enabled in settings.toml.
+    #         if processes['rotate_image']['enabled']:
+    #             params = self.checker(processes['rotate_image'])
+    #             image_object = self.rotate_image(image_object, **params)
+    #
+    #         if processes['reverse_colors']['enabled']:
+    #             image_object = self.reverse_color(image_object)
+    #
+    #         if processes['clahe']['enabled']:
+    #             params = self.checker(processes['clahe'])
+    #             image_object = self.clahe(image_object,
+    #                                       color_space=color_space_val,
+    #                                       **params
+    #                                       )
+    #
+    #         if processes['adjust_brightness_and_contrast']['enabled']:
+    #             params = self.checker(processes['adjust_brightness_and_contrast'])
+    #             image_object = self.contrast_brightness(image_object,
+    #                                                     **params
+    #                                                     )
+    #
+    #         if processes['sharpen_image']['enabled']:
+    #             params = self.checker(processes['sharpen_image'])
+    #             image_object = self.sharpen_image(image_object,
+    #                                               **params
+    #                                               )
+    #
+    #         if processes['bilateral_filter']['enabled']:
+    #             params = self.checker(processes['bilateral_filter'])
+    #             image_object = self.bilateral_filter(image_object,
+    #                                                  **params
+    #                                                  )
+    #
+    #         if processes['denoise_filter']['enabled']:
+    #             params = self.checker(processes['denoise_filter'])
+    #             image_object = self.denoise_image(image_object,
+    #                                               color_space=color_space_val,
+    #                                               **params
+    #                                               )
+    #
+    #         if processes['stress']['enabled']:
+    #             params = self.checker(processes['stress'])
+    #             image_object = stress_pipeline(image_object,
+    #                                            **params
+    #                                            )
+    #
+    #         if processes['thresholding']['enabled']:
+    #             params = self.checker(processes['thresholding'])
+    #             image_object = self.thresholding(image_object,
+    #                                              **params
+    #                                              )
+    #
+    #         if self.settings['write_output']['image']['enabled']:
+    #             params = self.checker(self.settings['write_output']['image'])
+    #             self.write_processed_image(image_object,
+    #                                        output_dir=self.output_dir,
+    #                                        **params
+    #                                        )
+    #
+    #     if self.settings['write_output']['pdf']['enabled']:
+    #         params = self.checker(self.settings['write_output']['pdf'])
+    #         self.write_pdf_file(**params)
+    #
+    #     # Reset file counter after all files in dir have been processed.
+    #     self.file_counter = 1
 
     @staticmethod
     def bilateral_filter(image_object: MatLike,
@@ -199,7 +199,7 @@ class ImageProcessor:
         for param in check_params:
             if param == 'enabled':
                 continue
-            if check_params[param] is not None and check_params[param] != "None":
+            if check_params[param] != "None":
                 not_none_values[param] = check_params[param]
 
         return not_none_values
@@ -413,7 +413,7 @@ class ImageProcessor:
         return apply_kernel
 
     @staticmethod
-    def write_pdf_file(images_path: str,
+    def write_pdf_file(#images_path: str,
                        images_file_type: str = 'jpg',
                        pdf_name: str = 'Document',
                        pdf_compression: int = 0
@@ -436,7 +436,7 @@ class ImageProcessor:
 
         # Create list of images for pdf convertion.
         images = [os.path.abspath(image) for image in os.listdir(
-            images_path) if image.endswith(f'.{images_file_type}')]
+            os.getcwd()) if image.endswith(f'.{images_file_type}')]
 
         # Create temp single-page pdfs.
         print('Creating temp pdf files. They will be automatically deleted '
@@ -448,9 +448,11 @@ class ImageProcessor:
             counter += 1
 
         # Create list of single-image pdfs for merging.
+        print(os.listdir(os.getcwd()), '\n')
         single_image_pdfs = [os.path.abspath(pdf) for pdf in
-                             os.listdir(images_path)
+                             os.listdir(os.getcwd())
                              if pdf.startswith('_tempfile_')]
+        print(single_image_pdfs)
 
         merger = PdfWriter()
 
@@ -476,15 +478,15 @@ class ImageProcessor:
 
         else:
             # If compression value == 0, copy temp pdf file as output file.
-            source_file = os.path.join(images_path, '_tempfile_merged.pdf')
-            destination_path = os.path.join(images_path, output_file_name)
+            source_file = os.path.join(os.getcwd(), '_tempfile_merged.pdf')
+            destination_path = os.path.join(os.getcwd(), output_file_name)
 
             if os.path.isfile(destination_path):
                 os.remove(destination_path)
             os.rename(source_file, destination_path)
 
         # Delete temp files.
-        for file in os.listdir(images_path):
+        for file in os.listdir(os.getcwd()):
             if file.startswith('_tempfile'):
                 os.remove(file)
 
@@ -534,6 +536,8 @@ class ImageProcessor:
 
         # Check for existing output directory, then change working dir.
         if not os.path.isdir(output_dir):
+            print('isdir false')
+            print(output_dir)
             os.mkdir(output_dir)
         os.chdir(output_dir)
 

@@ -2,6 +2,8 @@ import tomllib
 
 from image_processor import ImageProcessor
 
+from image_processing_pipeline import ImageProcessingPipeline
+
 
 def load_settings(settings_file: str) -> dict:
     with open(settings_file, "rb") as f:
@@ -10,5 +12,7 @@ def load_settings(settings_file: str) -> dict:
 if __name__ == '__main__':
     settings = load_settings("settings.toml")
     
-    image_processor = ImageProcessor(settings=settings)
-    image_processor.image_processing_pipeline()
+    # image_processor = ImageProcessor(settings=settings)
+    image_processing_pipeline = ImageProcessingPipeline(settings=settings)
+    image_processing_pipeline.run_selected_processes()
+    # image_processor.image_processing_pipeline(settings=settings)

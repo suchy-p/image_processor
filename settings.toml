@@ -39,10 +39,10 @@ strength = "None"
 
 [processes.stress]
 enabled = true
-convert_to_grayscale = false
+convert_to_grayscale = true
 radius = "None"
-sampling = 20
-iterations = 30
+sampling = 3
+iterations = 10
 gamma = 1.5
 
 [processes.thresholding]
@@ -52,13 +52,13 @@ max_value = "None"
 block_size = "None"
 constant = "None"
 
-[write_output.image]
+[write_output.write_image]
 enabled = true
 file_extension = "jpg"
 quality = 80
 
-[write_output.pdf]
-enabled = false
-images_path = "processed_images"
+[write_output.write_pdf]
+enabled = true
+#images_path = "processed_images"
 pdf_name = "Document"
 pdf_compression = "None"
