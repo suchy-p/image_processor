@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "image_processor"
+version = "0.1.0"
+description = "A modular image processing pipeline for batch transformation, featuring STRESS enhancement, advanced computer vision filters, HEIC format support, and automated PDF assembly."
+authors = [
+    { name = "Patryk" },
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy==2.2.4",
+    "opencv-python==4.11.0.86",
+    "pillow==11.1.0",
+    "pypdf==5.4.0",
+    "pillow-heif==0.22.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["exp/stress/tests"]

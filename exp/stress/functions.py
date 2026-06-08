@@ -1,6 +1,4 @@
 import os
-
-import cv2
 from cv2.typing import MatLike
 import numpy as np
 
@@ -75,9 +73,9 @@ def draw_random_samples(height: int,
     height_coords = np.random.randint(low=min_height, high=max_height,
                                       size=(height, width, sampling))
     width_coords = np.random.randint(low=min_width, high=max_width,
-                    size=(height, width, sampling))
+                                     size=(height, width, sampling))
 
-    # Stack coords
+    # Stack coords.
     random_samples_coords = np.stack([height_coords, width_coords],
                                      axis=-1)
 
@@ -141,10 +139,10 @@ def calculate_envelopes(channels: int,
     return envelopes
 
 
-def calculate_stress (image: MatLike,
-                      envelopes: np.ndarray,
-                      gamma: float = 1.25,
-                      ) ->  np.ndarray:
+def calculate_stress(image: MatLike,
+                     envelopes: np.ndarray,
+                     gamma: float = 1.25,
+                     ) -> np.ndarray:
     """
     Performs the STRESS transformation on the image based on local envelopes.
 
@@ -166,11 +164,11 @@ def calculate_stress (image: MatLike,
 
     # Calculating stress; out=image.astype(float) as fallback for zero
     # division handling.
-    stress =  np.divide(numerator, denominator,
+    stress = np.divide(numerator, denominator,
                        out=image,
                        dtype=float,
-                       where=denominator!=0
-                        )
+                       where=denominator != 0
+                       )
     # Normalize values.
     stress = np.clip(stress, 0, 1)
     # Gamma correction, if needed.

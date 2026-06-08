@@ -11,6 +11,7 @@ from exp.stress.functions import (
     get_sample_values,
 )
 
+
 def stress_pipeline(image: MatLike,
                     radius: int | None = None,
                     sampling: int = 5,
@@ -39,11 +40,11 @@ def stress_pipeline(image: MatLike,
                                                     )
 
         # Get random samples value for each color channel.
-        sample_values = get_sample_values(image=image,
-                                          channels=channels,
-                                          random_samples_coords=
-                                          random_samples_coords
-                                          )
+        sample_values = get_sample_values(
+            image=image,
+            channels=channels,
+            random_samples_coords=random_samples_coords
+        )
 
         # Get envelope values for each coordinate.
         envelopes = calculate_envelopes(channels=channels,
@@ -58,7 +59,7 @@ def stress_pipeline(image: MatLike,
 
         # Append image stress computations for each iteration.
         if new_image is None:
-             new_image = list(stress)
+            new_image = list(stress)
         else:
             new_image.append(stress)
 
@@ -81,5 +82,3 @@ def stress_pipeline(image: MatLike,
 
     print("Done")
     return new_image
-
-
