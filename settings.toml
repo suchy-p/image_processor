@@ -1,5 +1,5 @@
 # Color or grayscale.
-color_space = "color"
+color_mode = "color"
 
 [paths]
 input_dir = "~/Leon (Kopia)"
@@ -7,38 +7,77 @@ output_dir = "processed_images"
 
 [processes.adjust_brightness_and_contrast]
 enabled = false
+# alpha: Contrast value. Value between 0 and 1 lowers the contrast, while value
+# above 1 increases it.
+# Default = 1.0
 alpha = "None"
+# beta: Brightness value. Suggested value between -127 and 127.
+# Default = 0
 beta = "None"
 
 [processes.bilateral_filter]
 enabled = false
+# d: Diameter of the pixel neighborhood used for filtering; if d == 0 diameter
+#is calculated based only on sigma_space.
+# Default = 9
 d = "None"
-sigma_color = "None"
-sigma_space = "None"
+# sigmaColor: Color deviation value. Higher value means higher tonal spread,
+#i.e. colors farther away from each other will be mixed.
+# Default = 75
+sigmaColor = "None"
+# sigmaSpace: Second parameter defining extent of pixel neighborhood; higher
+# value means that the further pixels will be mixed if their colors lie within
+# sigmaColor range.
+# Default = 75
+sigmaSpace = "None"
 
 [processes.clahe]
 enabled = false
-clip_limit = "None"
-tile_grid_size = "None"
+# clipLimit: Threshold for contrast limiting.
+# Default = 40
+clipLimit = "None"
+# tileGridSize: Sets row and column size of tile used to divide image for
+# applying clahe.
+# Default = (8, 8)
+tileGridSize = "None"
 
 [processes.denoise_filter]
 enabled = false
-filter_strength = "None"
+# templateWindowSize: Size in pixels of the template patch used to compute
+# weights; should be odd number.
+# Default = 7
+templateWindowSize = "None"
+# searchWindowSize: Size in pixels of the window used to compute weighted
+# average for given pixel; should be odd number.
+# Default = 21
+searchWindowSize = "None"
+# h and hColor: Filter strength for grayscale (h) and color (hColor)
+# images. Higher value means better noise removal at the cost of removing image
+# details and distorting colors (in color images).
+# Default hColor = 10 and h = 30
+hColor = "None"
+h = "None"
 
 [processes.reverse_colors]
 enabled = false
 
 [processes.rotate_image]
 enabled = false
+# Correct angle values are: 90, 180, 270.
 angle = 90
 
 [processes.sharpen_image]
 enabled = false
+# Choose between sharpen and unsharp_mask.
 kernel = "unsharp_mask"
-strength = "None"
+# filter_strength: As name implies; it is basically weigth for performing
+# alpha blending of original and processed images; correct values: between
+# 0 and 1.
+# Default = 0.5
+filter_strength = "None"
 
 [processes.stress]
-enabled = true
+enabled = false
 convert_to_grayscale = true
 radius = "None"
 sampling = 3
@@ -47,18 +86,37 @@ gamma = 1.5
 
 [processes.thresholding]
 enabled = false
-method = "gaussian"
-max_value = "None"
-block_size = "None"
-constant = "None"
+# adaptiveMethod: Choose between thresholding methods: mean [0] or gaussian
+# [1].
+# Default = 0
+adaptiveMethod = "None"
+# maxValue: Max value that can be assigned to pixel.
+# Deafult = 255
+maxValue = "None"
+# block_size: Size of pixel neighborhood used to calculate threshold value.
+# Should be odd number.
+# Default = 199
+blockSize = "None"
+# C: Constant value subtracted from the mean or weighted (gaussian
+# thresholding) sum of neighboring pixels.
+# Default = 40
+C = "None"
+# Thresholding type.
+# Default = cv2.THRESH_BINARY
+thresholdType = "None"
 
 [write_output.write_image]
 enabled = true
+# Choose between JPG and PNG.
 file_extension = "jpg"
+# For JPEG set between 0 and 100; for PNG it is translated to compression
+# ratio, set between 1 and 10 (highest compression).
 quality = 80
 
 [write_output.write_pdf]
-enabled = true
+# I'm thinking about removing this at all, without compression it's not very
+# useful. Except maybe LZW would do?
+enabled = false
 #images_path = "processed_images"
 pdf_name = "Document"
 pdf_compression = "None"

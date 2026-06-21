@@ -10,9 +10,9 @@ from pypdf import PdfWriter
 class ImageProcessor:
 
     def __init__(self, settings: dict):
-        self.settings = settings
         self.input_dir = os.path.expanduser(settings["paths"]["input_dir"])
-        self.output_dir = os.path.expanduser(settings["paths"]["output_dir"])
+        self.output_dir = os.path.join(self.input_dir, settings["paths"][
+                                           "output_dir"])
         self.file_counter = 1
 
         self.color_space = {
@@ -21,124 +21,109 @@ class ImageProcessor:
         }
 
     @staticmethod
-    def bilateral_filter(image_object: MatLike,
-                         d: int = 9,
-                         sigma_color: int = 75,
-                         sigma_space: int = 75) -> MatLike:
+    def check_defaults_overwrite(settings: dict[str, str | int | float |None],
+                                 default_params: dict[str, str | int | float
+                                                        | tuple [int, int]
+                                                           | None]
+                                 ) -> dict[str, str | int | float]:
         """
-        Bilateral filter as alternative to other noise removal techniques.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param d: Diameter of the pixel neighborhood used for filtering;
-         if d == 0 diameter is calculated based only on sigma_space.
-          Default value == 9.
-        :param sigma_color: Color deviation value. Higher value means
-         higher tonal spread, i.e. colors farther away from each other
-          will be mixed.
-          Default value == 75.
-        :param sigma_space: Second parameter defining extent of pixel
-         neighborhood; higher value means that the further pixels will be
-          mixed if their colors lie within sigma_color range.
-          Default value == 75.
-        :return: Numpy array overwriting original image_object for further
-         manipulations.
-        """
-
-        image = image_object
-        image = cv2.bilateralFilter(image,
-                                    d=d,
-                                    sigmaColor=sigma_color,
-                                    sigmaSpace=sigma_space)
-
-        return image
-
-    def thresholding(self, image_object: MatLike,
-                     method: str = "mean",
-                     max_value: int = 255,
-                     block_size: int = 199,
-                     constant: int = 40) -> MatLike:
-        """
-         Create black and white images using adaptive thresholding.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param method: Choose between thresholding methods: mean or gaussian.
-        :param max_value: Max value assigned to pixel.
-        :param block_size: Size of pixel neighborhood used to calculate
-         threshold value. Should be odd number.
-        :param constant: Value subtracted from the mean or weighted (gaussian
-          thresholding) sum of neighboring pixels
-        :return: Numpy array overwriting original image_object for further
-         manipulations.
-        """
-
-        image = image_object
-
-        # Check color space in config, change color space to grayscale if
-        # needed.
-        if self.settings["color_space"] == "color":
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
-        adaptive_method = {"mean": cv2.ADAPTIVE_THRESH_MEAN_C,
-                           "gaussian": cv2.ADAPTIVE_THRESH_GAUSSIAN_C}
-
-        image = cv2.adaptiveThreshold(
-            src=image,
-            maxValue=max_value,
-            adaptiveMethod=adaptive_method[method],
-            thresholdType=cv2.THRESH_BINARY,
-            blockSize=block_size,
-            C=constant)
-
-        return image
-
-    @staticmethod
-    def checker(params: dict[str, str | int | float | None]) -> dict:
-        """
-        Check if config overwrites default parameters of given process,
+        Check if settings.toml overwrites default parameters of given process,
          i.e. if passes not None value for any parameter.
-        :param params: Parameters from config dictionary.
+        :param default_params: Dict of method default params.
+        :param settings: User settings passed from settings.toml file.
         :return: Dict of items in config which values are not None.
         """
-        check_params = params
-        not_none_values = dict()
+        user_params = settings
+        set_params = dict()
 
-        for param in check_params:
+        for param in user_params:
+            # Ignore enabled = true at the beginning of given process'
+            # params in settings.toml.
             if param == "enabled":
                 continue
-            if check_params[param] != "None":
-                not_none_values[param] = check_params[param]
+            # User's param replaces default value.
+            if user_params[param] != "None":
+                set_params[param] = user_params[param]
+            else:
+                set_params[param] = default_params[param]
 
-        return not_none_values
+        return set_params
 
-    @staticmethod
-    def clahe(image_object: MatLike,
-              color_space: int,
-              clip_limit: int = 40,
-              tile_grid_size: tuple[int, int] = (8, 8)) -> MatLike:
+    def adjust_brightness_and_contrast(self,
+                                       image: MatLike,
+                                       settings: dict[
+                                           str, str | int | float | None],
+                                       ) -> MatLike:
+        """
+        Contrast and brightness adjustment. You may want to apply it when not
+         using clahe.
+        :param image: Open cv image object.
+        :param settings: User settings passed from settings.toml file.
+        :return: Numpy array overwriting original image object for further
+         manipulations.
+        """
+        image = image
+        default_params = {"alpha": 1.0, "beta": 0}
+        # Check for non-default user settings.
+        passed_params = self.check_defaults_overwrite(settings,
+                                                      default_params)
+
+        image = cv2.convertScaleAbs(image, **passed_params)
+
+        return image
+
+    def bilateral_filter(self,
+                         image: MatLike,
+                         settings: dict[str, str | int | float | None],
+                         ) -> MatLike:
+        """
+        Bilateral filter as alternative to other noise removal techniques.
+        :param image: Open cv image object.
+        :param settings: User settings passed from settings.toml file.
+        :return: Numpy array overwriting original image object for further
+         manipulations.
+        """
+        default_params = {"d": 9,"sigmaColor": 75, "sigmaSpace": 75}
+        # Check for non-default user settings.
+        passed_values = self.check_defaults_overwrite(settings,
+                                                      default_params
+                                                      )
+        image = cv2.bilateralFilter(image,
+                                    **passed_values
+                                    )
+
+        return image
+
+    def clahe(self,
+              image: MatLike,
+              color_mode: int,
+              settings: dict[str, str | int | float | None],
+              ) -> MatLike:
         """
         Apply contrast limited adaptive histogram equalization for
          increased readability, especially for darkened areas of image.
          Suggested for writing black and white output images, but can
           process color images also.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param color_space: Color space set for processed images; color or
+        :param image: Open cv image object.
+        :param color_mode: Color mode set for processed images; color or
          grayscale.
-        :param clip_limit: Threshold for contrast limiting. Default value: 40.
-        :param tile_grid_size: Sets row and column size of tile used to
-         divide image for applying clahe. Default value: 8 rows, 8 columns.
+        :param settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image_object for further
          manipulations.
         """
+        default_params = {"clipLimit": 40,"tileGridSize": (8,8)}
+        # Check for non-default user settings.
+        passed_params = self.check_defaults_overwrite(settings,
+                                                      default_params,
+                                                      )
 
-        image = image_object
-        clahe = cv2.createCLAHE(clipLimit=clip_limit,
-                                tileGridSize=tile_grid_size)
+        image = image
+        clahe = cv2.createCLAHE(**passed_params)
 
-        if color_space == 0:
+        if color_mode == 0:
             image = clahe.apply(image)
 
-        elif color_space == 1:
+        elif color_mode == 1:
             # Convert image to lab color space.
             lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
             # Split lab to lightness [0], green-red [1] and blue-yellow
@@ -153,102 +138,76 @@ class ImageProcessor:
 
         return image
 
-    @staticmethod
-    def contrast_brightness(image_object: MatLike,
-                            alpha: int | float = 1,
-                            beta: int = 0) -> MatLike:
+    def denoise_image(self,
+                      image: MatLike,
+                      color_mode: int,
+                      settings: dict[str, str | int | float | None],
+                      ) -> MatLike:
         """
-        Contrast and brightness adjustment. You may want to apply it when not
-         using clahe.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param alpha: Contrast value. Value between 0 and 1 lowers the
-         contrast, while value above 1 increases it.
-        :param beta: Brightness value. Suggested value between -127 and 127.
-        :return: Numpy array overwriting original image_object for further
+        Apply denoising filter to an Open cv object. Apply to noised images
+         or after using sharpening kernel.
+        :param image: Open cv image object.
+        :param color_mode: Color mode set for processed images; color or
+         grayscale.
+        :param settings: User settings passed from settings.toml file.
+        :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image_object
-        alpha_value = alpha
-        beta_value = beta
+        image = image
+        default_params = {"templateWindowSize": 7, "searchWindowSize": 21,}
 
-        image = cv2.convertScaleAbs(image, alpha=alpha_value, beta=beta_value)
+        if color_mode == 0:
+            # Remove filter strength value for color images and set default
+            # filter strength value in settings.
+            if "hColor" in settings:
+                del settings["hColor"]
+            default_params["h"] = 30
+            # Check for non-default user settings.
+            passed_params = self.check_defaults_overwrite(settings,
+                                                          default_params
+                                                          )
+            image = cv2.fastNlMeansDenoising(src=image,
+                                                      **passed_params
+                                                      )
+        elif color_mode == 1:
+            # Remove filter strength value for grayscale images and set
+            # default filter strength value in settings.
+            if "h" in settings:
+                del settings["h"]
+            default_params["hColor"] = 10
+            # Check for non-default user settings.
+            passed_params = self.check_defaults_overwrite(settings,
+                                                          default_params
+                                                          )
+            image = cv2.fastNlMeansDenoisingColored(src=image,
+                                                             **passed_params
+                                                             )
 
         return image
 
     @staticmethod
-    def denoise_image(image_object: MatLike,
-                      color_space: int,
-                      filter_strength: int = 10) -> MatLike:
-        """
-        Apply denoising filter to an Open cv object. Apply to noised images
-         or after using sharpening kernel.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param color_space: Color space set for processed images; color or
-         grayscale.
-        :param filter_strength: Higher value means better noise removal at
-         the cost of removing image details and distorting colors (in color
-         images); default value: 10.
-         Recommended values:
-            colors - 10
-            grayscale - 30
-        :return: Numpy array overwriting original image_object for further
-         manipulations.
-        """
-        image = image_object
-        denoised_image = None
-        # size in pixels of the template patch used to compute weights;
-        # should be odd number; recommended value == 7
-        template_window_size = 7
-        # size in pixels of the window that is used to compute weighted
-        # average for given pixel; should be odd number; affects
-        # performance; recommended value == 21
-        search_window_size = 21
-
-        if color_space == 0:
-            denoised_image = cv2.fastNlMeansDenoising(
-                src=image,
-                templateWindowSize=template_window_size,
-                searchWindowSize=search_window_size,
-                h=filter_strength
-            )
-        elif color_space == 1:
-            denoised_image = cv2.fastNlMeansDenoisingColored(
-                src=image,
-                templateWindowSize=template_window_size,
-                searchWindowSize=search_window_size,
-                hColor=filter_strength
-            )
-
-        return denoised_image
-
-    @staticmethod
-    def reverse_color(image_object: MatLike) -> MatLike:
+    def reverse_color(image: MatLike) -> MatLike:
         """
         Reverse image colors. Useful for negative microforms or to enhance
          visibility of fading writing.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :return: Numpy array overwriting original image_object for further
+        :param image: Open cv image object.
+        :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image_object
+        image = image
         image = cv2.bitwise_not(image)
 
         return image
 
     @staticmethod
-    def rotate_image(image_object: MatLike,
-                     angle: int,
+    def rotate_image(image: MatLike,
+                     settings: dict[str, int],
                      ) -> MatLike:
         """
         Rotate Open cv object by given value.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param angle: Angle for rotating object clockwise by 90
-         degrees steps: 90, 180 or 270 degrees.
-        :return: Numpy array overwriting original image_object for further
+        :param image: Open cv image object.
+        :param settings: User settings passed from settings.toml file.
+        :return: Numpy array overwriting original image object for further
          manipulations.
         """
         # Dict of supported rotation angles.
@@ -258,65 +217,107 @@ class ImageProcessor:
                                   }
 
         # Apply image rotation.
-        image: MatLike = image_object
-        rotated_image = cv2.rotate(image, rotate.get(angle,
+        image: MatLike = image
+        rotated_image = cv2.rotate(image, rotate[settings["angle"]],
                                                      "Invalid rotation value."
                                                      )
-                                   )
 
         return rotated_image
 
-    @staticmethod
-    def sharpen_image(image_object: MatLike,
-                      kernel: str = "sharpen",
-                      strength: int = 0
+    def sharpen_image(self,
+                      image: MatLike,
+                      settings: dict[str, str | int | float | None],
                       ) -> MatLike:
         """
-        Apply sharpen or unsharp masking on an image using kernels.
+        Perform sharpen or unsharp masking on an image using kernels.
         It is possible to add more kernels in future if needed.
-        :param image_object: Open cv object, i.e. image file converted to numpy
-         array.
-        :param kernel: Kernel chosen from "kernels" dict. Default value:
-         sharpen.
-        :param strength: Multiplier for a kernel ranging from 1.00 (default)
-         to 1.99.
+        :param image: Open cv image object.
+        :param settings: User settings passed from settings.toml file.
+        :return: Numpy array overwriting original image object for further
+         manipulations.
+        """
+        image = image
+        default_params = {"kernel": "sharpen", "filter_strength": 0.5}
+
+        # Check if strength value is between 0 and 1.
+        # for refactoring
+        # if settings["filter_strength"] is "None":
+        #     pass
+        # else:
+        #     print(settings.get("filter_strength"))
+        #     if 0 > settings["filter_strength"] > 1:
+        #         print(f"Strength value should be between 0 and 1, got "
+        #               f"{settings["filter_strength"]} instead.\n"
+        #               "Applying default value.")
+        #         settings["filter_strength"] = default_params["filter_strength"]
+
+        # Standard sharpening kernel from Wikipedia.
+        sharpening_kernel = np.array([[0, -1, 0],
+                                      [-1, 5, -1],
+                                      [0, -1, 0]])
+
+        # Gaussian blur, also from Wiki; normalized for 0 - 1 range.
+        unsharp_masking_kernel = np.array([[1, 4, 6, 4, 1],
+                                          [4, 16, 24, 16, 4],
+                                          [6, 24, 46, 24, 6],
+                                          [4, 16, 24, 16, 4],
+                                          [1, 4, 6, 4, 1]])/255
+
+        # Dict of defined kernels to choose from.
+        kernels_map = {"sharpen": sharpening_kernel,
+                   "unsharp_mask": unsharp_masking_kernel,
+                   }
+        # Check for non-default user settings.
+        passed_params = self.check_defaults_overwrite(settings,
+                                                      default_params)
+        chosen_kernel = kernels_map[passed_params["kernel"]]
+        # Applying chosen kernel to image.
+        apply_kernel = cv2.filter2D(image, -1, chosen_kernel)
+        # Blend original and modified image, filter strength serves
+        # as weight.
+        image = cv2.addWeighted(src1=image,
+                                alpha=1-passed_params["filter_strength"],
+                                src2=apply_kernel,
+                                beta=passed_params["filter_strength"],
+                                gamma=0)
+
+        return image
+
+    def thresholding(self,
+                     image: MatLike,
+                     color_mode: int,
+                     settings: dict[str, str | int | float | None],
+                     ) -> MatLike:
+        """
+         Create black and white images using adaptive thresholding.
+        :param image: Open cv image object.
+        :param color_mode: Color mode set for processed images; color or
+         grayscale.
+        :param settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image_object for further
          manipulations.
         """
-        filter_strength = strength
 
-        # Check if strength value is between 0 and 99.
-        if 0 > filter_strength or 100 < filter_strength:
-            print(f"Strength value should be between 0 and 99, got "
-                  f"{filter_strength} instead.\n"
-                  "Applying default value.")
-            filter_strength = 0
+        image = image
+        default_params = {"adaptiveMethod": 0,
+                          "maxValue": 255,
+                          "blockSize": 199,
+                          "C": 40,
+                          "thresholdType": cv2.THRESH_BINARY
+                          }
+        passed_params = self.check_defaults_overwrite(settings,
+                                                      default_params)
 
-        # Standard sharpening kernel from Wikipedia.
-        sharpening_kernel = np.multiply(float(f"1.{filter_strength}"),
-                                        np.array([[0, -1, 0],
-                                                  [-1, 5, -1],
-                                                  [0, -1, 0]])
-                                        )
+        # Check color space in config, change color space to grayscale if
+        # needed.
+        if color_mode == 1:
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Just like above, untested as of 16.04.25. exp 0.00425
-        unsharp_masking_kernel = np.multiply(0.00390625 * float(
-            f"1.{filter_strength}"),
-                                             np.array([[1, 4, 6, 4, 1],
-                                                       [4, 16, 24, 16, 4],
-                                                       [6, 24, 46, 24, 6],
-                                                       [4, 16, 24, 16, 4],
-                                                       [1, 4, 6, 4, 1]])
-                                             )
+        image = cv2.adaptiveThreshold(
+            src=image,
+            **passed_params)
 
-        # Dict of defined kernels to choose from.
-        kernels = {"sharpen": sharpening_kernel,
-                   "unsharp_mask": unsharp_masking_kernel,
-                   }
-
-        # Applying chosen kernel to image.
-        apply_kernel = cv2.filter2D(image_object, -1, kernels[kernel])
-        return apply_kernel
+        return image
 
     @staticmethod
     def write_pdf_file(  # images_path: str,
@@ -400,6 +401,7 @@ class ImageProcessor:
 
     def write_processed_image(self,
                               image_object: MatLike,
+                              settings,
                               output_dir: str,
                               file_extension: str = "jpg",
                               quality: int | None = None
@@ -416,29 +418,35 @@ class ImageProcessor:
          if None Open cv applies default values: 95 for jpg, 3 for png.
         :return: None, writes image file of chosen file type.
         """
-        image_to_write: MatLike = image_object
-        file_name = f"Image_{str(self.file_counter).zfill(4)}.{file_extension}"
-        write_quality_param: list[int | None] = [int(cv2.IMWRITE_JPEG_QUALITY),
-                                                 quality
+        default_params = {"file_extension": "jpg",
+                          "quality": 85}
+        passed_params = self.check_defaults_overwrite(settings, default_params)
+        output_dir = self.output_dir
+
+        image: MatLike = image_object
+        file_name = (f"Image_{str(self.file_counter).zfill(4)}."
+                     f"{passed_params["file_extension"]}")
+        quality_param: list[int | dict[str, int]] = [int(
+            cv2.IMWRITE_JPEG_QUALITY), int(passed_params["quality"])
                                                  ]
 
         # Change jpeg quality to png compression if file_extension == png.
-        if file_extension == "png":
-            write_quality_param: list[int | None] = [
+        if passed_params["file_extension"] == "png":
+            quality_param: list[int | dict[str, int]] = [
                 int(cv2.IMWRITE_PNG_COMPRESSION),
-                quality
+                int(passed_params["quality"])
             ]
             # Check if provided png compression factor is correct when not
             # using default value.
-            if quality is not None:
-                assert quality in range(0, 10), "Compression value should " \
-                                                "be integer between 0 and 9."
-
-        # Check if provided jpg quality value is correct when not using
-        # default value.
-        if file_extension == "jpg" and quality is not None:
-            assert quality in range(0, 101), "Quality value should be " \
-                                             "integer between 0 and 100."
+        #     if quality is not None:
+        #         assert quality in range(0, 10), "Compression value should " \
+        #                                         "be integer between 0 and 9."
+        #
+        # # Check if provided jpg quality value is correct when not using
+        # # default value.
+        # if file_extension == "jpg" and quality is not None:
+        #     assert quality in range(0, 101), "Quality value should be " \
+        #                                      "integer between 0 and 100."
 
         # Check for existing output directory, then change working dir.
         if not os.path.isdir(output_dir):
@@ -450,8 +458,8 @@ class ImageProcessor:
         # Write Open cv object as image file.
         try:
             cv2.imwrite(file_name,
-                        image_to_write,
-                        write_quality_param
+                        image,
+                        quality_param
                         )
             print(f"{file_name} file created.")
             self.file_counter += 1

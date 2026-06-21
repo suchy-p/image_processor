@@ -18,7 +18,7 @@ def stress_pipeline(image: MatLike,
                     iterations: int = 3,
                     convert_to_grayscale: bool = True,
                     gamma: float = 1.0
-                    ):
+                    ) -> MatLike:
 
     # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     new_image = []

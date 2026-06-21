@@ -4,6 +4,7 @@ from os import getcwd
 from shutil import copyfile
 
 import cv2
+from cv2.typing import MatLike
 import numpy as np
 from PIL import Image
 import pillow_heif
@@ -26,7 +27,7 @@ class ImageConverter:
 
     def image_converting_pipeline(self,
                                   **config_params: dict[str,
-                                                        str | int | None]):
+                                                        str | int | None]) -> None:
         """
         Runs processes enabled in configuration dict, passes params to
          selected processes.
@@ -34,7 +35,7 @@ class ImageConverter:
         :return: None, applies selected processes to image files.
         """
         config = config_params
-        checker = ImageProcessor.checker
+        checker = ImageProcessor.check_defaults_overwrite
 
         # Validate user inputs.
         validate: list | None = self.validate_inputs(config)
@@ -68,7 +69,7 @@ class ImageConverter:
                       counter: int = 0,
                       output_file_name: str = "Image_",
                       output_file_suffix: str = None,
-                      ):
+                      ) -> None:
         """
         Change format of image files in selected directory.
         :param quality: Desired quality/compression value. Passed to
@@ -80,7 +81,7 @@ class ImageConverter:
         :return: This method doesn't return anything.
         """
 
-        # Check for any stray pdfs, temp files which weren't deleted because
+        # Check for any stray PDFs, temp files which weren't deleted because
         # of prior errors.
         file_list = [file for file in self.file_list if not file.endswith(
             "pdf")]
@@ -100,10 +101,10 @@ class ImageConverter:
                                               bgr_mode=True,
                                               )
                 # Convert image var to np array, so cv2 can read it.
-                image = np.array(image)
+                image: MatLike = np.array(image)
 
             else:
-                image = cv2.imread(file)
+                image: MatLike = cv2.imread(file)
 
             # Write file using provided params.
             cv2.imwrite(os.path.join(self.output_file_path, name), image,
@@ -112,7 +113,7 @@ class ImageConverter:
 
     def rename(self,
                output_file_name: str,
-               counter: int = 0):
+               counter: int = 0) -> None:
         """
         Rename chosen files. Keeps file format by getting suffix of first file.
         :param output_file_name: Desired file name.
@@ -136,7 +137,7 @@ class ImageConverter:
             copyfile(file, os.path.join(dest_path, dest_filename))
             use_counter += 1
 
-    def validate_inputs(self, config):
+    def validate_inputs(self, config: dict) -> list | None:
         """
         Validate files selected for conversion, chosen output file format
          and quality / compression value.
@@ -159,7 +160,7 @@ class ImageConverter:
         )
 
         # Validate chosen output file extension in extensions var; tiff and
-        # heic excluded.
+        # HEIC excluded.
         if desired_format not in extensions[:3:]:
             exceptions.append("Wrong extension. Choose jpg, jpeg or png.\n")
 
