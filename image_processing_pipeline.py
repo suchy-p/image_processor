@@ -2,7 +2,6 @@ import os
 
 import cv2
 from cv2.typing import MatLike
-from jedi import settings
 
 from image_processor import ImageProcessor
 from stress.stress_pipeline import stress_pipeline
@@ -18,14 +17,18 @@ class ImageProcessingPipeline:
         self.processes = ImageProcessor(settings)
         self.stress_pipeline = stress_pipeline
         self.settings = settings
-        self.input_dir = os.path.expanduser(settings["paths"]["input_dir"])
-        self.output_dir = os.path.join(self.input_dir, settings["paths"][
-            "output_dir"])
+        # Since ImageProcessor also needs input and output dir and I need to
+        # instantiate it anyway, self.input_dir and self.output dir are
+        # derived from there.
+        self.input_dir = self.processes.input_dir
+        self.output_dir = self.processes.output_dir
         self.color_mode_map = {
             "color": cv2.IMREAD_COLOR,
             "grayscale": cv2.IMREAD_GRAYSCALE,
         }
         self.color_mode_set = self.color_mode_map[settings["color_mode"]]
+        # Remove file counter from ImageProcessor after moving file writing
+        # to separate module. Also reminded in ImageProcessor.
         self.file_counter = 1
 
     def run_selected_processes(self) -> None:

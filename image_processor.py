@@ -13,12 +13,9 @@ class ImageProcessor:
         self.input_dir = os.path.expanduser(settings["paths"]["input_dir"])
         self.output_dir = os.path.join(self.input_dir, settings["paths"][
                                            "output_dir"])
+        # Remove file counter after moving file writing
+        # to separate module. Also reminded in ImageProcessingPipeline.
         self.file_counter = 1
-
-        self.color_space = {
-            "color": cv2.IMREAD_COLOR,
-            "grayscale": cv2.IMREAD_GRAYSCALE,
-        }
 
     @staticmethod
     def check_defaults_overwrite(settings: dict[str, str | int | float |None],
