@@ -2,9 +2,10 @@ import os
 
 import cv2
 from cv2.typing import MatLike
+from jedi import settings
 
 from image_processor import ImageProcessor
-from exp.stress.pipeline import stress_pipeline
+from stress.stress_pipeline import stress_pipeline
 
 
 class ImageProcessingPipeline:
@@ -24,7 +25,7 @@ class ImageProcessingPipeline:
             "color": cv2.IMREAD_COLOR,
             "grayscale": cv2.IMREAD_GRAYSCALE,
         }
-        self.color_mode_set = self.color_mode_map[settings["color_space"]]
+        self.color_mode_set = self.color_mode_map[settings["color_mode"]]
         self.file_counter = 1
 
     def run_selected_processes(self) -> None:
@@ -51,8 +52,6 @@ class ImageProcessingPipeline:
             # settings.toml.
 
             if enabled_processes["rotate_image"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["rotate_image"])
                 image_object = self.processes.rotate_image(
                     image_object, settings=enabled_processes["rotate_image"])
 
@@ -60,7 +59,6 @@ class ImageProcessingPipeline:
                 image_object = self.processes.reverse_color(image_object)
 
             if enabled_processes["clahe"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(enabled_processes["clahe"])
                 image_object = self.processes.clahe(
                     image_object,
                     color_mode=self.color_mode_set,
@@ -68,28 +66,20 @@ class ImageProcessingPipeline:
                 )
 
             if enabled_processes["adjust_brightness_and_contrast"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["adjust_brightness_and_contrast"])
                 image_object = self.processes.adjust_brightness_and_contrast(
                     image_object, settings=enabled_processes[
                         "adjust_brightness_and_contrast"])
 
             if enabled_processes["sharpen_image"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["sharpen_image"])
                 image_object = self.processes.sharpen_image(
                     image_object, settings=enabled_processes["sharpen_image"])
 
             if enabled_processes["bilateral_filter"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["bilateral_filter"])
                 image_object = self.processes.bilateral_filter(
                     image_object, settings=enabled_processes[
                         "bilateral_filter"])
 
             if enabled_processes["denoise_filter"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["denoise_filter"])
                 image_object = self.processes.denoise_image(
                     image_object,
                     color_mode=self.color_mode_set,
@@ -97,20 +87,17 @@ class ImageProcessingPipeline:
                 )
 
             if enabled_processes["stress"]["enabled"]:
-                params = self.processes.check_defaults_overwrite(enabled_processes["stress"])
-                image_object = self.stress_pipeline(image_object, **params)
+                image_object = self.stress_pipeline(image_object,
+                                                    settings=enabled_processes[
+                                                        "stress"])
 
             if enabled_processes["thresholding"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["thresholding"])
                 image_object = self.processes.thresholding(
                     image_object, color_mode=self.color_mode_set,
                     settings=enabled_processes[
                         "thresholding"])
 
             if enabled_processes["write_image"]["enabled"]:
-                # params = self.processes.check_defaults_overwrite(
-                #     enabled_processes["write_image"])
                 self.processes.write_processed_image(
                     image_object,
                     output_dir=self.output_dir,

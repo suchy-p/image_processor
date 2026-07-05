@@ -2,6 +2,11 @@ import os
 from cv2.typing import MatLike
 import numpy as np
 
+from image_processor import ImageProcessor
+
+
+check_defaults_overwrite = ImageProcessor.check_defaults_overwrite
+
 
 def get_file_list(input_dir: str) -> list[str]:
     """
@@ -24,8 +29,7 @@ def get_file_list(input_dir: str) -> list[str]:
 
 def draw_random_samples(height: int,
                         width: int,
-                        radius: int,
-                        sampling: int,
+                        settings: dict[str, str | int | float | None],
                         ) -> np.ndarray:
     """
     Generates a matrix of random sampling coordinates for every pixel in the
@@ -36,12 +40,19 @@ def draw_random_samples(height: int,
 
     :param height: Image height.
     :param width: Image width.
-    :param radius: Radius within which to sample.
-    :param sampling: Number of samples to draw per pixel.
+    :param settings: User settings passed from settings.toml file.
     :return: A NumPy array of shape (height, width, sampling, 2) containing
     (y, x) pairs.
     """
-
+    # Check for non-default user settings.
+    default_params = {"radius": None, "sampling": 3}
+    passed_params = check_defaults_overwrite(settings, default_params)
+    # If radius == None set longer image edge as radius value.
+    if passed_params["radius"] is None:
+        radius = int(height if height >= width else width)
+    else:
+        radius = int(passed_params["radius"])
+    sampling = int(passed_params["sampling"])
     # Generate image coordinate axes.
     # Shapes: y_axis = height, 1; x_axis = 1, width
     y_axis, x_axis = np.ogrid[0:height, 0:width]
@@ -141,7 +152,7 @@ def calculate_envelopes(channels: int,
 
 def calculate_stress(image: MatLike,
                      envelopes: np.ndarray,
-                     gamma: float = 1.25,
+                     settings: dict[str, str | int | float | None],
                      ) -> np.ndarray:
     """
     Performs the STRESS transformation on the image based on local envelopes.
@@ -151,9 +162,16 @@ def calculate_stress(image: MatLike,
 
     :param image: Original input image.
     :param envelopes: Matrix of local envelopes [min, max] for each pixel.
-    :param gamma: Gamma correction factor (default 1.0).
+    :param settings: User settings passed from settings.toml file.
     :return: Processed image as a floating-point NumPy array (0.0 to 1.0).
     """
+    # Check for non-default user settings.
+    # Without "radius": None if this value is passed from settings.toml it
+    # throws KeyError, when passing user values everything's fine.
+    # Should look into it later.
+    default_params = {"gamma": 1.25, "radius": None}
+    passed_params = check_defaults_overwrite(settings, default_params)
+    gamma = passed_params["gamma"]
     # Normalize image for 0.0 - 1.0 range.
     image = image.astype(float)/255.0
     min_envelopes = envelopes[..., 0]

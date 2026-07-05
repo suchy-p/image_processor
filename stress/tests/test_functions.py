@@ -1,6 +1,6 @@
 import numpy as np
-from exp.stress.functions import (apply_stress, get_image_shape,
-                                  draw_random_samples, get_envelopes)
+from stress.functions import (apply_stress, get_image_shape,
+                              draw_random_samples, get_envelopes)
 
 
 def test_get_image_shape():

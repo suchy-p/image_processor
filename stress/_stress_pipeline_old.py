@@ -4,7 +4,7 @@ import cv2
 from cv2.typing import MatLike
 import numpy as np
 
-from exp.stress.functions import (
+from stress.functions import (
     calculate_envelopes,
     calculate_stress,
     draw_random_samples,
@@ -13,6 +13,7 @@ from exp.stress.functions import (
 
 
 def stress_pipeline(image: MatLike,
+                    settings
                     radius: int | None = None,
                     sampling: int = 5,
                     iterations: int = 3,

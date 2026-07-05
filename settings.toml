@@ -77,12 +77,12 @@ kernel = "unsharp_mask"
 filter_strength = "None"
 
 [processes.stress]
-enabled = false
-convert_to_grayscale = true
+enabled = true
+convert_to_grayscale = false
 radius = "None"
 sampling = 3
 iterations = 10
-gamma = 1.5
+gamma = 1.25
 
 [processes.thresholding]
 enabled = false
