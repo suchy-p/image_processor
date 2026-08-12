@@ -1,3 +1,4 @@
+[colors]
 # Color or grayscale.
 color_mode = "color"
 
@@ -43,14 +44,14 @@ tileGridSize = "None"
 
 [processes.denoise_filter]
 enabled = false
-# templateWindowSize: Size in pixels of the template patch used to compute
-# weights; should be odd number.
-# Default = 7
-templateWindowSize = "None"
 # searchWindowSize: Size in pixels of the window used to compute weighted
 # average for given pixel; should be odd number.
 # Default = 21
 searchWindowSize = "None"
+# templateWindowSize: Size in pixels of the template patch used to compute
+# weights; should be odd number.
+# Default = 7
+templateWindowSize = "None"
 # h and hColor: Filter strength for grayscale (h) and color (hColor)
 # images. Higher value means better noise removal at the cost of removing image
 # details and distorting colors (in color images).
@@ -78,10 +79,17 @@ filter_strength = "None"
 
 [processes.stress]
 enabled = true
+# Convert color mode to grayscale.
 convert_to_grayscale = false
+# Sampling radius, i.e. max distance from pixel from which samples are being
+# drawn; correct values: positive integers.
 radius = "None"
+# Number of samples taken for each pixel; correct values: positive integers.
 sampling = 3
+# Number of iterations, i.e. how many times STRESS will be applied before
+# writing output image; correct values: positive integers.
 iterations = 10
+# Gamma correction; correct values: floating point from 1.0 (no corrections).
 gamma = 1.25
 
 [processes.thresholding]
@@ -90,9 +98,6 @@ enabled = false
 # [1].
 # Default = 0
 adaptiveMethod = "None"
-# maxValue: Max value that can be assigned to pixel.
-# Deafult = 255
-maxValue = "None"
 # block_size: Size of pixel neighborhood used to calculate threshold value.
 # Should be odd number.
 # Default = 199
@@ -101,6 +106,9 @@ blockSize = "None"
 # thresholding) sum of neighboring pixels.
 # Default = 40
 C = "None"
+# maxValue: Max value that can be assigned to pixel.
+# Default = 255
+maxValue = "None"
 # Thresholding type.
 # Default = cv2.THRESH_BINARY
 thresholdType = "None"
@@ -115,7 +123,7 @@ quality = 80
 
 [write_output.write_pdf]
 # I'm thinking about removing this at all, without compression it's not very
-# useful. Except maybe LZW would do?
+# useful. Except maybe LZW applied for each image before merging would do?
 enabled = false
 #images_path = "processed_images"
 pdf_name = "Document"
