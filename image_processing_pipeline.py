@@ -26,7 +26,7 @@ class ImageProcessingPipeline:
             "color": cv2.IMREAD_COLOR,
             "grayscale": cv2.IMREAD_GRAYSCALE,
         }
-        self.color_mode_set = self.color_mode_map[settings["color_mode"]]
+        self.color_mode_set = self.color_mode_map[settings["colors"]["color_mode"]]
         # Remove file counter from ImageProcessor after moving file writing
         # to separate module. Also reminded in ImageProcessor.
         self.file_counter = 1

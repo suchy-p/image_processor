@@ -3,7 +3,7 @@
 color_mode = "color"
 
 [paths]
-input_dir = "~/Leon (Kopia)"
+input_dir = "~/Leon"
 output_dir = "processed_images"
 
 [processes.adjust_brightness_and_contrast]
