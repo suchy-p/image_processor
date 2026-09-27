@@ -1,3 +1,6 @@
+# None values passed as parameter value means using default settings.
+# Colors and Paths categories don't support default settings.
+
 [colors]
 # Color or grayscale.
 color_mode = "color"
@@ -10,54 +13,68 @@ output_dir = "processed_images"
 enabled = false
 # alpha: Contrast value. Value between 0 and 1 lowers the contrast, while value
 # above 1 increases it.
-# Default = 1.0
+# Expected data type: float
+# Default value: 1.0
 alpha = "None"
 # beta: Brightness value. Suggested value between -127 and 127.
-# Default = 0
+# Expected data type: integer
+# Default value: 0
 beta = "None"
 
 [processes.bilateral_filter]
 enabled = false
-# d: Diameter of the pixel neighborhood used for filtering; if d == 0 diameter
-#is calculated based only on sigma_space.
-# Default = 9
+# d: Diameter of the pixel neighborhood used for filtering. Higher value decreases computing performance.
+# D is in strict relation with sigmaSpace, where for optimal performance d ≈ 3 * sigmaSpace.
+# If d ≤ 0, d is calculated automatically using this equation.
+# Expected data type: integer
+# Default value: 0
 d = "None"
-# sigmaColor: Color deviation value. Higher value means higher tonal spread,
-#i.e. colors farther away from each other will be mixed.
-# Default = 75
+# sigmaColor: Color deviation value, i.e. how distant shades of given color will be filtered.
+# Expected data type: integer
+# Default value: 15
 sigmaColor = "None"
-# sigmaSpace: Second parameter defining extent of pixel neighborhood; higher
-# value means that the further pixels will be mixed if their colors lie within
-# sigmaColor range.
-# Default = 75
+# sigmaSpace: Filter range, i.e. how neighboring pixels (d parameter) influence decreases with distance from given
+# pixel. SigmaSpace is in strict relation with d, where for optimal performance d ≈ 3 * sigmaSpace.
+# Expected data type: integer
+# Default value: 15
 sigmaSpace = "None"
 
 [processes.clahe]
 enabled = false
-# clipLimit: Threshold for contrast limiting.
-# Default = 40
-clipLimit = "None"
-# tileGridSize: Sets row and column size of tile used to divide image for
-# applying clahe.
-# Default = (8, 8)
+# clipLimit: Threshold for contrast limiting, i.e. contrast values exceeding this value will be clipped.
+# Expected data type: positive float
+# Default value: 40.0
+clipLimit = 20#"None"
+# tileGridSize: Size of segments upon which image will be divided. These segments have their own local histograms,
+# which will be equalziesd instead of a global histogram of whole image.
+# Expected data type: tuple of two positive integers (remember that toml use lists instead of tuples)
+# Default value: (8, 8)
 tileGridSize = "None"
 
 [processes.denoise_filter]
 enabled = false
 # searchWindowSize: Size in pixels of the window used to compute weighted
-# average for given pixel; should be odd number.
-# Default = 21
+# average for given pixel. In most cases value above 31 doesn’t result in any significant image improvement.
+# Affects performance.
+# Expected data type: positive odd integer
+# Default value: 21
 searchWindowSize = "None"
-# templateWindowSize: Size in pixels of the template patch used to compute
-# weights; should be odd number.
-# Default = 7
+# templateWindowSize: Size in pixels of the template patch used to search for similarities in search window and compute
+# weights thus should be smaller than searchWindowSize. Lower values are better at preserving details, higher at heavy
+# noise removal.
+# Expected data type: positive odd integer
+# Default value: 7
 templateWindowSize = "None"
-# h and hColor: Filter strength for grayscale (h) and color (hColor)
-# images. Higher value means better noise removal at the cost of removing image
-# details and distorting colors (in color images).
-# Default hColor = 10 and h = 30
-hColor = "None"
+# h: Filter strength for grayscale images. Higher value means better noise removal at the cost of removing image
+# details.
+# Expected data type: positive integer
+# Default value: 30
 h = "None"
+# hColor: Filter strength for color images. Higher value means better noise removal at the cost of removing image
+# details and distorting colors.
+# Expected data type: positive integer
+# Default value: 10
+hColor = "None"
 
 [processes.reverse_colors]
 enabled = false
@@ -69,28 +86,41 @@ angle = 90
 
 [processes.sharpen_image]
 enabled = false
-# Choose between sharpen and unsharp_mask.
-kernel = "unsharp_mask"
-# filter_strength: As name implies; it is basically weigth for performing
-# alpha blending of original and processed images; correct values: between
-# 0 and 1.
-# Default = 0.5
+# kernel: Choose between sharpen and unsharp_mask.
+kernel = "sharpen"
+# filter_strength: As name implies; it is basically weight for performing
+# alpha blending of original and processed imagesCorrect values are in range between 0 and 1, where 0 returns original
+# image and 1 returns fully filtered image.
+# Expected data type: float in range between 0 and 1
+# Default value: 0.5
 filter_strength = "None"
 
 [processes.stress]
 enabled = true
-# Convert color mode to grayscale.
+# convert_to_grayscale: Convert image to grayscale, then apply stress.
+# Expected data type: boolean
+# Default value: false
 convert_to_grayscale = false
-# Sampling radius, i.e. max distance from pixel from which samples are being
-# drawn; correct values: positive integers.
+# radius: Stress works in local scope, so needs to have defined maximum possible sampling distance for each image pixel.
+# Too low radius results in artifacts. Default radius value varies. According to authors' recommendation it is equal to
+# diagonal of an image. Too low radius results in artifacts.
+# Expected data type: positive integer
+# Default value: image diagonal
 radius = "None"
-# Number of samples taken for each pixel; correct values: positive integers.
-sampling = 3
-# Number of iterations, i.e. how many times STRESS will be applied before
-# writing output image; correct values: positive integers.
-iterations = 10
-# Gamma correction; correct values: floating point from 1.0 (no corrections).
-gamma = 1.25
+# sampling: Number of random samples drawn form within set radius. Highly affects color and contrast enhancement
+# results.
+# Expected data type: positive integer
+# Default value: 30
+sampling = "None"
+# iterations:  How many times STRESS is going to be calculated before calculating means as output values.
+# More iterations result in smoother tonal transitions.
+# Expected data type: positive integer
+# Default value: 10
+iterations = "None"
+# gamma: Gamma correction factor. 1.0 equals base image without gamma correction.
+# Expected data type: positive float
+# Default value: 1.0
+gamma = 1.5
 
 [processes.thresholding]
 enabled = false
@@ -98,33 +128,29 @@ enabled = false
 # [1].
 # Default = 0
 adaptiveMethod = "None"
-# block_size: Size of pixel neighborhood used to calculate threshold value.
-# Should be odd number.
-# Default = 199
+# block_size: Size of pixel neighborhood used to calculate local threshold value.
+# Expected data type: positive odd integer
+# Default value: 199
 blockSize = "None"
-# C: Constant value subtracted from the mean or weighted (gaussian
+# C: Constant value subtracted from the mean or weighted (in case of gaussian
 # thresholding) sum of neighboring pixels.
-# Default = 40
+# Expected data type: positive integer
+# Default value: 40
 C = "None"
-# maxValue: Max value that can be assigned to pixel.
-# Default = 255
+# maxValue: Max value that can be assigned to pixel. 255 equals pure white.
+# Expected data type: positive integer
+# Default value: 255
 maxValue = "None"
-# Thresholding type.
-# Default = cv2.THRESH_BINARY
+# Threshold types used by adaptive thresholding in OpenCV library are cv2.THRESH_BINARY (good for bringing bright
+# details on dark background) and cv2.THRESH_BINARY_INV (for bringing dark details on bright background).
+# Expected data type: 0 for cv2.THRESH_BINARY or 1 for cv2.THRESH_BINARY_INV
+# Default value: 0
 thresholdType = "None"
 
 [write_output.write_image]
 enabled = true
 # Choose between JPG and PNG.
-file_extension = "jpg"
+file_extension = "png"
 # For JPEG set between 0 and 100; for PNG it is translated to compression
 # ratio, set between 1 and 10 (highest compression).
-quality = 80
-
-[write_output.write_pdf]
-# I'm thinking about removing this at all, without compression it's not very
-# useful. Except maybe LZW applied for each image before merging would do?
-enabled = false
-#images_path = "processed_images"
-pdf_name = "Document"
-pdf_compression = "None"
+quality = 8

@@ -11,6 +11,7 @@ class ImageProcessingPipeline:
     """
     Runs processes enabled in configuration dict, passes params to
      selected processes.
+
     :return: None, applies selected processes to image files.
     """
     def __init__(self, settings: dict):
@@ -56,7 +57,7 @@ class ImageProcessingPipeline:
 
             if enabled_processes["rotate_image"]["enabled"]:
                 image_object = self.processes.rotate_image(
-                    image_object, settings=enabled_processes["rotate_image"])
+                    image_object, user_settings=enabled_processes["rotate_image"])
 
             if enabled_processes["reverse_colors"]["enabled"]:
                 image_object = self.processes.reverse_color(image_object)
@@ -65,51 +66,46 @@ class ImageProcessingPipeline:
                 image_object = self.processes.clahe(
                     image_object,
                     color_mode=self.color_mode_set,
-                    settings=enabled_processes["clahe"]
-                )
+                    user_settings=enabled_processes["clahe"])
 
             if enabled_processes["adjust_brightness_and_contrast"]["enabled"]:
                 image_object = self.processes.adjust_brightness_and_contrast(
-                    image_object, settings=enabled_processes[
+                    image_object, user_settings=enabled_processes[
                         "adjust_brightness_and_contrast"])
 
             if enabled_processes["sharpen_image"]["enabled"]:
                 image_object = self.processes.sharpen_image(
-                    image_object, settings=enabled_processes["sharpen_image"])
+                    image_object, user_settings=enabled_processes["sharpen_image"])
 
             if enabled_processes["bilateral_filter"]["enabled"]:
                 image_object = self.processes.bilateral_filter(
-                    image_object, settings=enabled_processes[
+                    image_object, user_settings=enabled_processes[
                         "bilateral_filter"])
 
             if enabled_processes["denoise_filter"]["enabled"]:
                 image_object = self.processes.denoise_image(
                     image_object,
                     color_mode=self.color_mode_set,
-                    settings=enabled_processes["denoise_filter"]
-                )
+                    user_settings=enabled_processes["denoise_filter"])
 
             if enabled_processes["stress"]["enabled"]:
                 image_object = self.stress_pipeline(image_object,
-                                                    settings=enabled_processes[
+                                                    user_settings=enabled_processes[
                                                         "stress"])
 
             if enabled_processes["thresholding"]["enabled"]:
                 image_object = self.processes.thresholding(
-                    image_object, color_mode=self.color_mode_set,
-                    settings=enabled_processes[
+                    image_object,
+                    color_mode=self.color_mode_set,
+                    user_settings=enabled_processes[
                         "thresholding"])
 
             if enabled_processes["write_image"]["enabled"]:
                 self.processes.write_processed_image(
                     image_object,
                     output_dir=self.output_dir,
-                    settings=enabled_processes["write_image"]
-                )
+                    user_settings=enabled_processes["write_image"])
 
-        if enabled_processes["write_pdf"]["enabled"]:
-            params = self.processes.check_defaults_overwrite(enabled_processes["write_pdf"])
-            self.processes.write_pdf_file(**params)
 
         # Reset file counter after all files in dir have been processed.
         self.file_counter = 1

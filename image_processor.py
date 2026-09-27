@@ -1,92 +1,94 @@
 import os
+import sys
 
 import cv2
 from cv2.typing import MatLike
 import numpy as np
-from PIL import Image
-from pypdf import PdfWriter
 
 
 class ImageProcessor:
 
     def __init__(self, settings: dict):
         self.input_dir = os.path.expanduser(settings["paths"]["input_dir"])
-        self.output_dir = os.path.join(self.input_dir, settings["paths"][
-                                           "output_dir"])
-        # Remove file counter after moving file writing
-        # to separate module. Also reminded in ImageProcessingPipeline.
+        self.output_dir = os.path.join(self.input_dir, settings["paths"]["output_dir"])
+        # Remove file counter after moving file writing to separate module.
+        # Also reminded in ImageProcessingPipeline.
         self.file_counter = 1
 
     @staticmethod
-    def check_defaults_overwrite(settings: dict[str, str | int | float |None],
-                                 default_params: dict[str, str | int | float
-                                                        | tuple [int, int]
-                                                           | None]
-                                 ) -> dict[str, str | int | float]:
+    def check_defaults_overwrite(user_settings: dict[str, str | int | float | None],
+                                 default_settings: dict[str, str | int | float
+                                                             | tuple [int, int]
+                                                             | None]
+                                 ) -> dict[str, str | int | float | tuple[int, int]]:
         """
-        Check if settings.toml overwrites default parameters of given process,
+        Checks if settings.toml overwrites default parameters of given process,
          i.e. if passes not None value for any parameter.
-        :param default_params: Dict of method default params.
-        :param settings: User settings passed from settings.toml file.
+
+        :param default_settings: Dict of method default params.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Dict of items in config which values are not None.
         """
-        user_params = settings
-        set_params = dict()
 
-        for param in user_params:
+        output_settings = dict()
+
+        for setting in user_settings:
             # Ignore enabled = true at the beginning of given process'
             # params in settings.toml.
-            if param == "enabled":
+            if setting == "enabled":
                 continue
             # User's param replaces default value.
-            if user_params[param] != "None":
-                set_params[param] = user_params[param]
+            if user_settings[setting] != "None":
+                output_settings[setting] = user_settings[setting]
             else:
-                set_params[param] = default_params[param]
+                output_settings[setting] = default_settings[setting]
 
-        return set_params
+        return output_settings
 
     def adjust_brightness_and_contrast(self,
                                        image: MatLike,
-                                       settings: dict[
+                                       user_settings: dict[
                                            str, str | int | float | None],
                                        ) -> MatLike:
         """
-        Contrast and brightness adjustment. You may want to apply it when not
-         using clahe.
+        Contrast and brightness adjustment.
+
         :param image: Open cv image object.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image
-        default_params = {"alpha": 1.0, "beta": 0}
-        # Check for non-default user settings.
-        passed_params = self.check_defaults_overwrite(settings,
-                                                      default_params)
 
-        image = cv2.convertScaleAbs(image, **passed_params)
+        default_settings = {"alpha": 1.0, "beta": 0}
+        # Check for non-default user settings.
+        checked_settings = self.check_defaults_overwrite(user_settings,
+                                                      default_settings)
+
+        image = cv2.convertScaleAbs(image, **checked_settings)
 
         return image
 
     def bilateral_filter(self,
                          image: MatLike,
-                         settings: dict[str, str | int | float | None],
+                         user_settings: dict[str, str | int | float | None],
                          ) -> MatLike:
         """
         Bilateral filter as alternative to other noise removal techniques.
+
         :param image: Open cv image object.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        default_params = {"d": 9,"sigmaColor": 75, "sigmaSpace": 75}
+
+        default_settings = {"d": 0,"sigmaColor": 75, "sigmaSpace": 75}
         # Check for non-default user settings.
-        passed_values = self.check_defaults_overwrite(settings,
-                                                      default_params
-                                                      )
+        checked_settings = self.check_defaults_overwrite(user_settings,
+                                                         default_settings
+                                                         )
+
         image = cv2.bilateralFilter(image,
-                                    **passed_values
+                                    **checked_settings
                                     )
 
         return image
@@ -94,39 +96,40 @@ class ImageProcessor:
     def clahe(self,
               image: MatLike,
               color_mode: int,
-              settings: dict[str, str | int | float | None],
+              user_settings: dict[str, str | int | float | None],
               ) -> MatLike:
         """
-        Apply contrast limited adaptive histogram equalization for
-         increased readability, especially for darkened areas of image.
-         Suggested for writing black and white output images, but can
-          process color images also.
+        Apply Contrast Limited Adaptive Histogram Equalization for
+        increased readability, especially for darkened areas of an image.
+        Suggested for writing black and white output images, but can
+        also process color images.
+
         :param image: Open cv image object.
         :param color_mode: Color mode set for processed images; color or
          grayscale.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image_object for further
          manipulations.
         """
-        default_params = {"clipLimit": 40,"tileGridSize": (8,8)}
+
+        default_settings = {"clipLimit": 40.0,"tileGridSize": (8,8)}
         # Check for non-default user settings.
-        passed_params = self.check_defaults_overwrite(settings,
-                                                      default_params,
+        checked_settings = self.check_defaults_overwrite(user_settings,
+                                                      default_settings,
                                                       )
 
-        image = image
-        clahe = cv2.createCLAHE(**passed_params)
+        clahe = cv2.createCLAHE(**checked_settings)
 
         if color_mode == 0:
             image = clahe.apply(image)
 
         elif color_mode == 1:
-            # Convert image to lab color space.
+            # Convert image to LAB color space.
             lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-            # Split lab to lightness [0], green-red [1] and blue-yellow
+            # Split LAB to lightness [0], green-red [1] and blue-yellow
             # [2] planes.
             lab_planes = list(cv2.split(lab))
-            # Apply clahe to lightness plane.
+            # Apply CLAHE to lightness plane.
             lab_planes[0] = clahe.apply(lab_planes[0])
             # Merge all planes.
             lab = cv2.merge(lab_planes)
@@ -138,47 +141,49 @@ class ImageProcessor:
     def denoise_image(self,
                       image: MatLike,
                       color_mode: int,
-                      settings: dict[str, str | int | float | None],
+                      user_settings: dict[str, str | int | float | None],
                       ) -> MatLike:
         """
-        Apply denoising filter to an Open cv object. Apply to noised images
-         or after using sharpening kernel.
+        Apply common denoising filter to an image.
+
         :param image: Open cv image object.
         :param color_mode: Color mode set for processed images; color or
          grayscale.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image
-        default_params = {"templateWindowSize": 7, "searchWindowSize": 21,}
+
+        default_settings = {"templateWindowSize": 7, "searchWindowSize": 21,}
 
         if color_mode == 0:
             # Remove filter strength value for color images and set default
             # filter strength value in settings.
-            if "hColor" in settings:
-                del settings["hColor"]
-            default_params["h"] = 30
+            if "hColor" in user_settings:
+                del user_settings["hColor"]
+            default_settings["h"] = 30
             # Check for non-default user settings.
-            passed_params = self.check_defaults_overwrite(settings,
-                                                          default_params
-                                                          )
+            checked_settings = self.check_defaults_overwrite(user_settings,
+                                                             default_settings
+                                                             )
+
             image = cv2.fastNlMeansDenoising(src=image,
-                                                      **passed_params
-                                                      )
+                                             **checked_settings
+                                             )
         elif color_mode == 1:
             # Remove filter strength value for grayscale images and set
             # default filter strength value in settings.
-            if "h" in settings:
-                del settings["h"]
-            default_params["hColor"] = 10
+            if "h" in user_settings:
+                del user_settings["h"]
+            default_settings["hColor"] = 10
             # Check for non-default user settings.
-            passed_params = self.check_defaults_overwrite(settings,
-                                                          default_params
-                                                          )
-            image = cv2.fastNlMeansDenoisingColored(src=image,
-                                                             **passed_params
+            checked_settings = self.check_defaults_overwrite(user_settings,
+                                                             default_settings
                                                              )
+
+            image = cv2.fastNlMeansDenoisingColored(src=image,
+                                                    **checked_settings
+                                                    )
 
         return image
 
@@ -186,124 +191,122 @@ class ImageProcessor:
     def reverse_color(image: MatLike) -> MatLike:
         """
         Reverse image colors. Useful for negative microforms or to enhance
-         visibility of fading writing.
+        visibility of fading writing.
+
         :param image: Open cv image object.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image
+
         image = cv2.bitwise_not(image)
 
         return image
 
     @staticmethod
     def rotate_image(image: MatLike,
-                     settings: dict[str, int],
+                     user_settings: dict[str, int],
                      ) -> MatLike:
         """
-        Rotate Open cv object by given value.
+        Rotate image by 90 degrees steps.
+
         :param image: Open cv image object.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
+
         # Dict of supported rotation angles.
-        rotate: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
+        rotation_angles: dict[int, int] = {90: cv2.ROTATE_90_CLOCKWISE,
                                   180: cv2.ROTATE_180,
                                   270: cv2.ROTATE_90_COUNTERCLOCKWISE,
                                   }
 
+        # Check input rotation value.
+        if user_settings["angle"] not in rotation_angles.keys():
+            print("Invalid rotation value.")
+            sys.exit()
+
+        # Set rotation method.
+        rotate_by = rotation_angles[user_settings["angle"]]
         # Apply image rotation.
-        image: MatLike = image
-        rotated_image = cv2.rotate(image, rotate[settings["angle"]],
-                                                     "Invalid rotation value."
-                                                     )
+        rotated_image = cv2.rotate(image, rotate_by)
 
         return rotated_image
 
     def sharpen_image(self,
                       image: MatLike,
-                      settings: dict[str, str | int | float | None],
+                      user_settings: dict[str, str | int | float | None],
                       ) -> MatLike:
         """
         Perform sharpen or unsharp masking on an image using kernels.
         It is possible to add more kernels in future if needed.
+
         :param image: Open cv image object.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image object for further
          manipulations.
         """
-        image = image
-        default_params = {"kernel": "sharpen", "filter_strength": 0.5}
 
-        # Check if strength value is between 0 and 1.
-        # for refactoring
-        # if settings["filter_strength"] is "None":
-        #     pass
-        # else:
-        #     print(settings.get("filter_strength"))
-        #     if 0 > settings["filter_strength"] > 1:
-        #         print(f"Strength value should be between 0 and 1, got "
-        #               f"{settings["filter_strength"]} instead.\n"
-        #               "Applying default value.")
-        #         settings["filter_strength"] = default_params["filter_strength"]
+        default_settings = {"kernel": "sharpen", "filter_strength": 0.5}
 
         # Standard sharpening kernel from Wikipedia.
         sharpening_kernel = np.array([[0, -1, 0],
                                       [-1, 5, -1],
                                       [0, -1, 0]])
 
-        # Gaussian blur, also from Wiki; normalized for 0 - 1 range.
-        unsharp_masking_kernel = np.array([[1, 4, 6, 4, 1],
-                                          [4, 16, 24, 16, 4],
-                                          [6, 24, 46, 24, 6],
-                                          [4, 16, 24, 16, 4],
-                                          [1, 4, 6, 4, 1]])/255
-
-        # Dict of defined kernels to choose from.
-        kernels_map = {"sharpen": sharpening_kernel,
-                   "unsharp_mask": unsharp_masking_kernel,
-                   }
         # Check for non-default user settings.
-        passed_params = self.check_defaults_overwrite(settings,
-                                                      default_params)
-        chosen_kernel = kernels_map[passed_params["kernel"]]
+        checked_settings = self.check_defaults_overwrite(user_settings,
+                                                      default_settings)
+
+        chosen_kernel = checked_settings["kernel"]
         # Applying chosen kernel to image.
-        apply_kernel = cv2.filter2D(image, -1, chosen_kernel)
+
         # Blend original and modified image, filter strength serves
         # as weight.
-        image = cv2.addWeighted(src1=image,
-                                alpha=1-passed_params["filter_strength"],
-                                src2=apply_kernel,
-                                beta=passed_params["filter_strength"],
-                                gamma=0)
+        if chosen_kernel == "sharpen":
+            apply_kernel = cv2.filter2D(image, -1, sharpening_kernel)
+            image = cv2.addWeighted(src1=image,
+                                    alpha=1-checked_settings["filter_strength"],
+                                    src2=apply_kernel,
+                                    beta=checked_settings["filter_strength"],
+                                    gamma=0)
+
+        elif chosen_kernel == "unsharp_mask":
+            # Apply Gaussian blur, 5x5 kernel.
+            blurred_image = cv2.GaussianBlur(image, (5,5),1.0)
+            # Subtract blurred image from original image.
+            unsharp_image = cv2.addWeighted(src1=image,
+                                            alpha=1 - checked_settings["filter_strength"],
+                                            src2=blurred_image,
+                                            beta=checked_settings["filter_strength"],
+                                            gamma=0)
 
         return image
 
     def thresholding(self,
                      image: MatLike,
                      color_mode: int,
-                     settings: dict[str, str | int | float | None],
+                     user_settings: dict[str, str | int | float | None],
                      ) -> MatLike:
         """
-         Create black and white images using adaptive thresholding.
+        Create black and white images using adaptive thresholding.
+
         :param image: Open cv image object.
         :param color_mode: Color mode set for processed images; color or
          grayscale.
-        :param settings: User settings passed from settings.toml file.
+        :param user_settings: User settings passed from settings.toml file.
         :return: Numpy array overwriting original image_object for further
          manipulations.
         """
 
-        image = image
-        default_params = {"adaptiveMethod": 0,
+        default_settings = {"adaptiveMethod": 0,
                           "maxValue": 255,
                           "blockSize": 199,
                           "C": 40,
                           "thresholdType": cv2.THRESH_BINARY
                           }
-        passed_params = self.check_defaults_overwrite(settings,
-                                                      default_params)
+        passed_params = self.check_defaults_overwrite(user_settings,
+                                                      default_settings)
 
         # Check color space in config, change color space to grayscale if
         # needed.
@@ -316,147 +319,57 @@ class ImageProcessor:
 
         return image
 
-    @staticmethod
-    def write_pdf_file(  # images_path: str,
-                       images_file_type: str = "jpg",
-                       pdf_name: str = "Document",
-                       pdf_compression: int = 0
-                       ) -> None:
-        """
-        Creates PDF file from processed images.
-        :param images_path: Path to directory containing image files.
-        :param images_file_type: Specify image file type, so this func
-         doesn't try to create PDF from non-image files that could be in
-          images directory (e.g. previously created PDF file).
-        :param pdf_name: Name of PDF file containing all images from
-         specified directory.
-        :param pdf_compression: Compression factor for PDF file:
-         from 0 (no compression) to 9 (highest compression). Default value = 0.
-        :return: None, writes PDF file in directory containing images.
-        """
-        output_file_name = f"{pdf_name}.pdf"
-        # Path for temp single-image pdfs, deleted after merging into one file.
-        counter = 1
-
-        # Create list of images for pdf convertion.
-        images = [os.path.abspath(image) for image in os.listdir(
-            os.getcwd()) if image.endswith(f".{images_file_type}")]
-
-        # Create temp single-page pdfs.
-        print("Creating temp pdf files. They will be automatically deleted "
-              "after everything is done.")
-        for image in images:
-            current_image = Image.open(image)
-            name = f"_tempfile_{str(counter).zfill(3)}.pdf"
-            current_image.save(name, "PDF")
-            counter += 1
-
-        # Create list of single-image pdfs for merging.
-        print(os.listdir(os.getcwd()), "\n")
-        single_image_pdfs = [os.path.abspath(pdf) for pdf in
-                             os.listdir(os.getcwd())
-                             if pdf.startswith("_tempfile_")]
-        print(single_image_pdfs)
-
-        merger = PdfWriter()
-
-        print("Merging temp pdf files.")
-        # Merge single-image pdfs into temp pdf file.
-        for pdf in single_image_pdfs:
-            merger.append(pdf, "rb")
-
-        with open("_tempfile_merged.pdf", "wb") as file:
-            merger.write(file)
-
-        # Compress temp PDF file if pdf_compression > 0 and create
-        # output file. For me, it doesn't seem to work at all, leaving it
-        # here just in case.
-        if pdf_compression > 0:
-            pdf_to_compress = PdfWriter("_tempfile_merged.pdf")
-            print("Compressing pdf file.")
-            for page in pdf_to_compress.pages:
-                page.compress_content_streams(level=pdf_compression)
-
-            with open(output_file_name, "wb") as file:
-                pdf_to_compress.write(file)
-
-        else:
-            # If compression value == 0, copy temp pdf file as output file.
-            source_file = os.path.join(os.getcwd(), "_tempfile_merged.pdf")
-            destination_path = os.path.join(os.getcwd(), output_file_name)
-
-            if os.path.isfile(destination_path):
-                os.remove(destination_path)
-            os.rename(source_file, destination_path)
-
-        # Delete temp files.
-        for file in os.listdir(os.getcwd()):
-            if file.startswith("_tempfile"):
-                os.remove(file)
-
-        print("Finished.")
-
     def write_processed_image(self,
-                              image_object: MatLike,
-                              settings,
-                              output_dir: str,
-                              file_extension: str = "jpg",
-                              quality: int | None = None
+                              image: MatLike,
+                              output_dir,
+                              user_settings,
                               ) -> None:
         """
-        Write Open cv object as image file of type chosen by user
-        (suggested formats: jpg or png).
-        :param image_object: Open cv object for writing as file.
-        :param output_dir: Path for writing file, class parameter.
-        :param file_extension: Image file format extension, suggested jpeg
-         for color and png for black and white images. Must be passed by user.
-        :param quality: Quality of jpg file in range from 0 to 100 or
-         compression of png file in range form 0 to 9;
-         if None Open cv applies default values: 95 for jpg, 3 for png.
+        Write Open cv object as image file of type chosen by user: jpg or png.
+
+        :param image: Open cv object for writing as file.
+        :param output_dir: Directory to write image files.
+        :param user_settings: User settings passed from settings.toml file.
         :return: None, writes image file of chosen file type.
         """
-        default_params = {"file_extension": "jpg",
-                          "quality": 85}
-        passed_params = self.check_defaults_overwrite(settings, default_params)
-        output_dir = self.output_dir
 
-        image: MatLike = image_object
+        default_settings = {"file_extension": "jpg",
+                          "quality": 85}
+        checked_settings = self.check_defaults_overwrite(user_settings, default_settings)
+
         file_name = (f"Image_{str(self.file_counter).zfill(4)}."
-                     f"{passed_params["file_extension"]}")
-        quality_param: list[int | dict[str, int]] = [int(
-            cv2.IMWRITE_JPEG_QUALITY), int(passed_params["quality"])
+                     f"{checked_settings["file_extension"]}")
+        quality: list[int | dict[str, int]] = [int(
+            cv2.IMWRITE_JPEG_QUALITY), int(checked_settings["quality"])
                                                  ]
 
         # Change jpeg quality to png compression if file_extension == png.
-        if passed_params["file_extension"] == "png":
-            quality_param: list[int | dict[str, int]] = [
+        if checked_settings["file_extension"] == "png":
+            quality: list[int | dict[str, int]] = [
                 int(cv2.IMWRITE_PNG_COMPRESSION),
-                int(passed_params["quality"])
+                int(checked_settings["quality"])
             ]
             # Check if provided png compression factor is correct when not
             # using default value.
-        #     if quality is not None:
-        #         assert quality in range(0, 10), "Compression value should " \
-        #                                         "be integer between 0 and 9."
-        #
-        # # Check if provided jpg quality value is correct when not using
-        # # default value.
-        # if file_extension == "jpg" and quality is not None:
-        #     assert quality in range(0, 101), "Quality value should be " \
-        #                                      "integer between 0 and 100."
+            if quality is not None:
+                assert quality[1] in range(0, 10), "Compression value should " \
+                                                "be integer between 0 and 9."
 
-        # Check for existing output directory, then change working dir.
+        # Check if provided jpg quality value is correct when not using
+        # default value.
+        if checked_settings["file_extension"] == "jpg" and quality is not None:
+            assert quality[1] in range(0, 101), "Quality value should be " \
+                                             "integer between 0 and 100."
+
+        # Check for existing output directory.
         if not os.path.isdir(output_dir):
-            print("isdir false")
-            print(output_dir)
             os.mkdir(output_dir)
-        os.chdir(output_dir)
 
         # Write Open cv object as image file.
         try:
-            cv2.imwrite(file_name,
+            cv2.imwrite(os.path.join(output_dir, file_name),
                         image,
-                        quality_param
+                        quality
                         )
             print(f"{file_name} file created.")
             self.file_counter += 1
